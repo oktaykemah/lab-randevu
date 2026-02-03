@@ -8,7 +8,42 @@
 
 <h1>Laboratuvar Randevu Sistemi</h1>
 
-<p>Bu sayfa QR kod ile açılacaktır.</p>
+<label>Ad Soyad</label><br>
+<input type="text" id="name"><br><br>
+
+<label>Tarih</label><br>
+<input type="date" id="date"><br><br>
+
+<label>Saat</label><br>
+<select id="time">
+    <option value="">Saat seçin</option>
+    <option>09:00</option>
+    <option>10:00</option>
+    <option>11:00</option>
+    <option>13:00</option>
+    <option>14:00</option>
+</select><br><br>
+
+<button onclick="randevuAl()">Randevu Al</button>
+
+<script>
+function randevuAl() {
+    var name = document.getElementById("name").value;
+    var date = document.getElementById("date").value;
+    var time = document.getElementById("time").value;
+
+    if (name === "" || date === "" || time === "") {
+        alert("Lütfen tüm alanları doldurun");
+    } else {
+        alert(
+            "Randevu alındı!\n\n" +
+            "Ad: " + name + "\n" +
+            "Tarih: " + date + "\n" +
+            "Saat: " + time
+        );
+    }
+}
+</script>
 
 </body>
 </html>
