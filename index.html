@@ -2,47 +2,115 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <title>Laboratuvar Randevu</title>
+    <title>Laboratuvar Randevu Sistemi</title>
+
+    <!-- Supabase kütüphanesi -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f6f8;
+            padding: 40px;
+        }
+
+        h1 {
+            text-align: center;
+        }
+
+        .container {
+            max-width: 400px;
+            margin: auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+        }
+
+        label {
+            display: block;
+            margin-top: 15px;
+        }
+
+        input, select, button {
+            width: 100%;
+            padding: 8px;
+            margin-top: 5px;
+        }
+
+        button {
+            margin-top: 20px;
+            background: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+    </style>
 </head>
 <body>
 
 <h1>Laboratuvar Randevu Sistemi</h1>
 
-<label>Ad Soyad</label><br>
-<input type="text" id="name"><br><br>
+<div class="container">
 
-<label>Tarih</label><br>
-<input type="date" id="date"><br><br>
+    <label>Ad Soyad</label>
+    <input type="text" id="name">
 
-<label>Saat</label><br>
-<select id="time">
-    <option value="">Saat seçin</option>
-    <option>09:00</option>
-    <option>10:00</option>
-    <option>11:00</option>
-    <option>13:00</option>
-    <option>14:00</option>
-</select><br><br>
+    <label>Tarih</label>
+    <input type="date" id="date">
 
-<button onclick="randevuAl()">Randevu Al</button>
+    <label>Saat</label>
+    <select id="time">
+        <option value="">Saat seçin</option>
+        <option>09:00</option>
+        <option>10:00</option>
+        <option>11:00</option>
+        <option>13:00</option>
+        <option>14:00</option>
+    </select>
+
+    <button onclick="randevuAl()">Randevu Al</button>
+
+</div>
 
 <script>
-function randevuAl() {
-    var name = document.getElementById("name").value;
-    var date = document.getElementById("date").value;
-    var time = document.getElementById("time").value;
+    // 🔴 BURAYI DOLDURACAKSIN
+    const supabaseUrl = "https://qrqosoqhdcpgrjtisjti.supabase.co";
+    const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFycW9zb3FoZGNwZ3JqdGlzanRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAxMDMxMDAsImV4cCI6MjA4NTY3OTEwMH0.tpU50mxPcVu1tr5IdiMpu1FHmRG5UGNXmUUvSHdhi5E";
+    // 🔴 BURAYA DOKUNMA BİTTİKTEN SONRA
 
-    if (name === "" || date === "" || time === "") {
-        alert("Lütfen tüm alanları doldurun");
-    } else {
-        alert(
-            "Randevu alındı!\n\n" +
-            "Ad: " + name + "\n" +
-            "Tarih: " + date + "\n" +
-            "Saat: " + time
-        );
+    const supabase = window.supabase.createClient(
+        supabaseUrl,
+        supabaseKey
+    );
+
+    function randevuAl() {
+        const name = document.getElementById("name").value;
+        const date = document.getElementById("date").value;
+        const time = document.getElementById("time").value;
+
+        if (name === "" || date === "" || time === "") {
+            alert("Lütfen tüm alanları doldurun");
+            return;
+        }
+
+        supabase
+            .from("appointments")
+            .insert([
+                {
+                    name: name,
+                    date: date,
+                    time: time
+                }
+            ])
+            .then(response => {
+                if (response.error) {
+                    alert("Bir hata oluştu ❌");
+                    console.log(response.error);
+                } else {
+                    alert("Randevu başarıyla kaydedildi 🎉");
+                }
+            });
     }
-}
 </script>
 
 </body>
