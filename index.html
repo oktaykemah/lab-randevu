@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>IKC Lab Booking - v1.0.6</title>
+  <title>IKC Lab Booking - v1.0.7</title>
   <script src="https://cdn.jsdelivr.net/npm/appwrite@13.0.1"></script>
   <style>
     .version { position: absolute; top: 10px; left: 10px; font-size: 12px; color: #999; font-weight: bold; }
@@ -22,12 +22,12 @@
 </head>
 <body>
 
-<div class="version">v1.0.6</div>
+<div class="version">v1.0.7</div>
 <div class="lang-switcher"><button class="lang-btn" onclick="toggleLanguage()" id="langBtn">EN</button></div>
 
 <div id="loadingPage" class="box hidden">
-  <h2 id="loadingText">Processing...</h2>
-  <p style="text-align: center;">Please wait while we verify your request.</p>
+  <h2 id="loadingText">Sistem Kontrol Ediliyor...</h2>
+  <p style="text-align: center;">Lütfen bekleyin, işleminiz tamamlanıyor.</p>
 </div>
 
 <div id="loginPage" class="box">
@@ -125,28 +125,26 @@
     updateUI();
   }
 
-  // URL Kontrolü ve Doğrulama Akışı
   window.onload = async () => {
     updateUI();
     const urlParams = new URLSearchParams(window.location.search);
     const userId = urlParams.get('userId');
     const secret = urlParams.get('secret');
+    const expire = urlParams.get('expire'); // İşte kritik nokta
 
     if (userId && secret) {
-      switchPage('loadingPage'); // İşlem sürerken yükleme ekranını göster
-      
-      // Şifre sıfırlama linki ise (Genellikle recovery tipi expire parametresi içerir)
-      if (window.location.search.includes('expire')) {
+      if (expire) {
+        // Eğer expire varsa, link Şifre Kurtarma linkidir.
         switchPage('resetConfirmPage');
       } else {
-        // E-posta Doğrulama İşlemi
+        // Eğer expire yoksa, link E-posta Doğrulama linkidir.
+        switchPage('loadingPage');
         try {
-          await account.updateVerification(userId, secret); // Appwrite tarafında verified: true yapar
-          alert(currentLang === 'tr' ? "Hesabınız başarıyla doğrulandı!" : "Account verified successfully!");
-          window.location.href = REDIRECT_URL; // Tertemiz ana sayfaya dön
+          await account.updateVerification(userId, secret);
+          alert(currentLang === 'tr' ? "E-posta başarıyla doğrulandı!" : "Email verified!");
+          window.location.href = REDIRECT_URL;
         } catch (e) {
-          console.error(e);
-          alert("Error: " + e.message);
+          alert("Hata: " + e.message);
           window.location.href = REDIRECT_URL;
         }
       }
@@ -161,18 +159,25 @@
   function getEmail(id) { return id.trim() + "@ogr.ikc.edu.tr"; }
 
   async function register() {
-    const studentId = document.getElementById("regStudentId").value;
-    const fullName = document.getElementById("regFullName").value;
+    const studentId = document.getElementById("regStudentId").value.trim();
+    const fullName = document.getElementById("regFullName").value.trim();
     const pass = document.getElementById("regPass").value;
-    if(!studentId || !fullName || !pass) { alert("Empty fields!"); return; }
+    const email = getEmail(studentId);
+
+    if(!studentId || !fullName || !pass) { alert("Lütfen tüm alanları doldurun!"); return; }
+
     try {
-      await account.create(ID.unique(), getEmail(studentId), pass, fullName);
-      await account.createEmailSession(getEmail(studentId), pass);
-      await account.createVerification(REDIRECT_URL); //
-      alert("Verification email sent!");
+      // Önce hesap oluşturulur
+      await account.create(ID.unique(), email, pass, fullName);
+      // Doğrulama maili gönderebilmek için geçici bir oturum açılmalıdır
+      await account.createEmailSession(email, pass);
+      // Doğrulama maili tetiklenir
+      await account.createVerification(REDIRECT_URL);
+      alert("Doğrulama maili gönderildi. Lütfen gelen kutunuzu kontrol edin.");
+      // Oturum kapatılır (Kullanıcı doğrulanana kadar giriş yapamamalı)
       await account.deleteSession('current');
       switchPage('loginPage');
-    } catch (e) { alert("Error: " + e.message); }
+    } catch (e) { alert("Kayıt hatası: " + e.message); }
   }
 
   async function login() {
@@ -181,20 +186,21 @@
     try {
       await account.createEmailSession(email, pass);
       currentUser = await account.get();
-      if (!currentUser.emailVerification) { // Verified: false ise girişi engelle
+      if (!currentUser.emailVerification) {
         alert(translations[currentLang].verifyMsg);
         await account.deleteSession('current');
         return;
       }
-      document.getElementById("welcomeMsg").innerText = "Welcome, " + currentUser.name;
+      document.getElementById("welcomeMsg").innerText = "Merhaba, " + currentUser.name;
       switchPage('bookingPage');
-    } catch (e) { alert("Login failed!"); }
+    } catch (e) { alert("Giriş yapılamadı. Şifrenizi veya mail onayınızı kontrol edin."); }
   }
 
   async function sendResetEmail() {
+    const email = getEmail(document.getElementById("forgotId").value);
     try {
-      await account.createRecovery(getEmail(document.getElementById("forgotId").value), REDIRECT_URL);
-      alert("Reset link sent!");
+      await account.createRecovery(email, REDIRECT_URL);
+      alert("Şifre sıfırlama linki gönderildi!");
     } catch (e) { alert(e.message); }
   }
 
@@ -203,7 +209,7 @@
     const pass = document.getElementById("newPass").value;
     try {
       await account.updateRecovery(urlParams.get('userId'), urlParams.get('secret'), pass, pass);
-      alert("Password updated!");
+      alert("Şifreniz başarıyla güncellendi!");
       window.location.href = REDIRECT_URL;
     } catch (e) { alert(e.message); }
   }
@@ -213,7 +219,7 @@
       await databases.createDocument(DATABASE_ID, COLLECTION_ID, ID.unique(), {
         name: currentUser.name, date: document.getElementById("date").value, time: document.getElementById("time").value
       });
-      alert("Booked!");
+      alert("Randevu başarıyla alındı!");
     } catch (e) { alert(e.message); }
   }
 
