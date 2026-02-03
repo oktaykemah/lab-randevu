@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>IKC Lab Booking - v1.0.3</title>
+  <title>IKC Lab Booking - v1.0.4</title>
   <script src="https://cdn.jsdelivr.net/npm/appwrite@13.0.1"></script>
   <style>
     .version { position: absolute; top: 10px; left: 10px; font-size: 12px; color: #999; font-weight: bold; }
@@ -12,13 +12,12 @@
     .lang-btn:hover { background: #0066cc; color: #fff; }
     
     body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-    .box { background: #fff; padding: 30px; width: 380px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); position: relative; }
+    .box { background: #fff; padding: 30px; width: 400px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); position: relative; }
     .hidden { display: none; }
     h2 { text-align: center; color: #333; margin-bottom: 15px; }
     
-    /* Sekme Yapısı */
     .tabs { display: flex; justify-content: center; margin-bottom: 20px; border-bottom: 2px solid #eee; }
-    .tab { padding: 10px 20px; cursor: pointer; font-weight: bold; color: #666; transition: 0.3s; }
+    .tab { padding: 10px 15px; cursor: pointer; font-weight: bold; color: #666; transition: 0.3s; font-size: 13px; }
     .tab.active { color: #0066cc; border-bottom: 2px solid #0066cc; }
 
     label { font-size: 13px; color: #666; font-weight: bold; display: block; margin-top: 10px; }
@@ -32,17 +31,17 @@
 </head>
 <body>
 
-<div class="version">v1.0.3</div>
+<div class="version">v1.0.4</div>
 <div class="lang-switcher"><button class="lang-btn" onclick="toggleLanguage()" id="langBtn">EN</button></div>
 
 <div id="loginPage" class="box">
   <h2 data-key="loginTitle">Giriş Yap</h2>
   <div class="tabs">
     <div class="tab active" onclick="setUserType('student', 'login')" id="login-student-tab" data-key="studentTab">Öğrenci</div>
-    <div class="tab" onclick="setUserType('staff', 'login')" id="login-staff-tab" data-key="staffTab">Personel</div>
+    <div class="tab" onclick="setUserType('academic', 'login')" id="login-academic-tab" data-key="academicTab">Akademik Personel</div>
   </div>
   <label id="loginIdLabel" data-key="studentIdLabel">Öğrenci Numarası</label>
-  <input id="loginId" type="text" placeholder="e.g., 160411006">
+  <input id="loginId" type="text" placeholder="ID">
   <label data-key="passLabel">Şifre</label>
   <input id="loginPass" type="password" placeholder="******">
   <button class="main-btn" onclick="login()" data-key="signInBtn">Giriş Yap</button>
@@ -56,12 +55,12 @@
   <h2 data-key="regTitle">Kayıt Ol</h2>
   <div class="tabs">
     <div class="tab active" onclick="setUserType('student', 'reg')" id="reg-student-tab" data-key="studentTab">Öğrenci</div>
-    <div class="tab" onclick="setUserType('staff', 'reg')" id="reg-staff-tab" data-key="staffTab">Personel</div>
+    <div class="tab" onclick="setUserType('academic', 'reg')" id="reg-academic-tab" data-key="academicTab">Akademik Personel</div>
   </div>
   <label id="regIdLabel" data-key="studentIdLabel">Öğrenci Numarası</label>
-  <input id="regId" type="text" placeholder="160411006">
+  <input id="regId" type="text" placeholder="ID">
   <label data-key="nameLabel">Ad Soyad</label>
-  <input id="regFullName" type="text" placeholder="John Doe">
+  <input id="regFullName" type="text" placeholder="Full Name">
   <label data-key="passLabel">Şifre</label>
   <input id="regPass" type="password">
   <button class="main-btn" onclick="register()" data-key="signUpBtn">Kayıt Ol</button>
@@ -72,7 +71,7 @@
   <h2 data-key="forgotPassLink">Şifre Sıfırlama</h2>
   <div class="tabs">
     <div class="tab active" onclick="setUserType('student', 'forgot')" id="forgot-student-tab" data-key="studentTab">Öğrenci</div>
-    <div class="tab" onclick="setUserType('staff', 'forgot')" id="forgot-staff-tab" data-key="staffTab">Personel</div>
+    <div class="tab" onclick="setUserType('academic', 'forgot')" id="forgot-academic-tab" data-key="academicTab">Akademik Personel</div>
   </div>
   <input id="forgotId" type="text" placeholder="ID">
   <button class="main-btn" onclick="sendResetEmail()" data-key="sendLinkBtn">Gönder</button>
@@ -101,23 +100,23 @@
 
   let currentUser = null;
   let currentLang = localStorage.getItem('lang') || 'tr';
-  let selectedUserType = 'student'; // 'student' or 'staff'
+  let selectedUserType = 'student';
 
   const translations = {
     tr: {
-      loginTitle: "Giriş Yap", studentIdLabel: "Öğrenci Numarası", staffIdLabel: "Personel ID", 
+      loginTitle: "Giriş Yap", studentIdLabel: "Öğrenci Numarası", academicIdLabel: "Personel ID", 
       passLabel: "Şifre", signInBtn: "Giriş Yap", createAccLink: "Yeni Hesap Oluştur", 
       forgotPassLink: "Şifremi Unuttum", regTitle: "Kayıt Ol", nameLabel: "Ad Soyad", 
-      signUpBtn: "Kayıt Ol", backBtn: "Geri Dön", studentTab: "Öğrenci", staffTab: "Personel",
+      signUpBtn: "Kayıt Ol", backBtn: "Geri Dön", studentTab: "Öğrenci", academicTab: "Akademik Personel",
       sendLinkBtn: "Sıfırlama Linki Gönder", dateLabel: "Tarih Seçin", timeLabel: "Saat Seçin", 
       bookBtn: "Randevu Al", logoutBtn: "Çıkış Yap", verifyMsg: "Lütfen e-postanızı doğrulayın!",
       successBook: "Randevu başarıyla alındı!"
     },
     en: {
-      loginTitle: "Login", studentIdLabel: "Student ID", staffIdLabel: "Staff ID",
+      loginTitle: "Login", studentIdLabel: "Student ID", academicIdLabel: "Academic ID",
       passLabel: "Password", signInBtn: "Sign In", createAccLink: "Create New Account", 
       forgotPassLink: "Forgot Password?", regTitle: "Register", nameLabel: "Full Name", 
-      signUpBtn: "Sign Up", backBtn: "Back", studentTab: "Student", staffTab: "Staff",
+      signUpBtn: "Sign Up", backBtn: "Back", studentTab: "Student", academicTab: "Academic Personnel",
       sendLinkBtn: "Send Reset Link", dateLabel: "Select Date", timeLabel: "Select Time", 
       bookBtn: "Book Now", logoutBtn: "Logout", verifyMsg: "Please verify your email!",
       successBook: "Appointment booked!"
@@ -129,8 +128,7 @@
     document.querySelectorAll(`.tab`).forEach(t => t.classList.remove('active'));
     document.getElementById(`${page}-${type}-tab`).classList.add('active');
     
-    // Label güncelleme
-    const labelKey = type === 'student' ? 'studentIdLabel' : 'staffIdLabel';
+    const labelKey = type === 'student' ? 'studentIdLabel' : 'academicIdLabel';
     if(document.getElementById(`${page}IdLabel`)) {
       document.getElementById(`${page}IdLabel`).innerText = translations[currentLang][labelKey];
     }
@@ -147,7 +145,7 @@
       el.innerText = translations[currentLang][key];
     });
     document.getElementById('langBtn').innerText = currentLang === 'tr' ? 'EN' : 'TR';
-    setUserType(selectedUserType, 'login'); // Mevcut label'ı güncelle
+    setUserType(selectedUserType, 'login');
   }
 
   function toggleLanguage() {
