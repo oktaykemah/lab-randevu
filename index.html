@@ -3,26 +3,28 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>IKC Lab Booking - Verified System</title>
+  <title>IKC Lab Booking - v1.0.0</title>
   <script src="https://cdn.jsdelivr.net/npm/appwrite@13.0.1"></script>
   <style>
+    /* Version Number Style */
+    .version { position: absolute; top: 10px; left: 10px; font-size: 12px; color: #999; font-weight: bold; }
+    
     body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-    .box { background: #fff; padding: 30px; width: 350px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
+    .box { background: #fff; padding: 30px; width: 350px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); position: relative; }
     .hidden { display: none; }
     h2 { text-align: center; color: #333; margin-bottom: 20px; }
     label { font-size: 13px; color: #666; font-weight: bold; }
     input, button { width: 100%; padding: 12px; margin-top: 8px; border-radius: 8px; border: 1px solid #ddd; box-sizing: border-box; }
-    
-    /* Buton Rengi Maviye Çevrildi */
     button { background: #0066cc; color: white; border: none; font-weight: bold; cursor: pointer; margin-top: 15px; transition: background 0.3s; }
     button:hover { background: #004a99; }
-    
     .links { margin-top: 15px; text-align: center; font-size: 13px; }
     .links a { color: #0066cc; text-decoration: none; cursor: pointer; display: block; margin-top: 8px; }
     .msg { margin-top: 10px; text-align: center; font-size: 14px; font-weight: 500; }
   </style>
 </head>
 <body>
+
+<div class="version">v1.0.0</div>
 
 <div id="loginPage" class="box">
   <h2>Login</h2>
@@ -33,33 +35,29 @@
   <button onclick="login()">Sign In</button>
   <div class="links">
     <a onclick="switchPage('registerPage')">Create New Account</a>
+    <a onclick="switchPage('forgotPage')">Forgot Password?</a>
   </div>
   <div id="loginMsg" class="msg"></div>
 </div>
 
-<div id="registerPage" class="box hidden">
-  <h2>Register</h2>
+<div id="forgotPage" class="box hidden">
+  <h2>Reset Password</h2>
+  <p style="font-size: 13px; color: #666; text-align: center;">Enter your Student ID to receive a reset link.</p>
   <label>Student ID</label>
-  <input id="regStudentId" type="text" placeholder="e.g., 160411006">
-  <label>Full Name</label>
-  <input id="regFullName" type="text" placeholder="John Doe">
-  <label>Password</label>
-  <input id="regPass" type="password" placeholder="Min. 8 characters">
-  <button onclick="register()">Sign Up</button>
+  <input id="forgotStudentId" type="text" placeholder="e.g., 160411006">
+  <button onclick="sendResetEmail()">Send Reset Email</button>
   <div class="links"><a onclick="switchPage('loginPage')">Back to Login</a></div>
-  <div id="regMsg" class="msg"></div>
+  <div id="forgotMsg" class="msg"></div>
 </div>
 
-<div id="bookingPage" class="box hidden">
-  <h2 id="welcomeMsg">Welcome</h2>
-  <p style="text-align: center; font-size: 14px; color: #666;">Lab Appointment</p>
-  <label>Select Date</label>
-  <input id="date" type="date">
-  <label>Select Time</label>
-  <input id="time" type="time">
-  <button onclick="bookAppointment()">Book Now</button>
-  <button style="background:#555;" onclick="logout()">Logout</button>
-  <div id="bookMsg" class="msg"></div>
+<div id="resetConfirmPage" class="box hidden">
+  <h2>New Password</h2>
+  <label>New Password</label>
+  <input id="newPass" type="password" placeholder="Min. 8 characters">
+  <label>Confirm Password</label>
+  <input id="newPassConfirm" type="password" placeholder="Re-type password">
+  <button onclick="completeReset()">Update Password</button>
+  <div id="resetMsg" class="msg"></div>
 </div>
 
 <script>
@@ -70,100 +68,74 @@
 
   const DATABASE_ID = '6981c42a00202c6cdf0e';
   const COLLECTION_ID = 'appointments';
-  const REDIRECT_URL = "https://oktaykemah.github.io/lab-randevu/"; // URL temizliği için
+  const REDIRECT_URL = "https://oktaykemah.github.io/lab-randevu/"; 
 
   let currentUser = null;
 
-  // URL'deki doğrulama parametrelerini kontrol et
   window.onload = async () => {
     const urlParams = new URLSearchParams(window.location.search);
     const userId = urlParams.get('userId');
     const secret = urlParams.get('secret');
+    const type = urlParams.get('type'); // Appwrite recovery tipini anlamak için
 
-    if (userId && secret) {
+    // Eğer şifre sıfırlama linkinden gelindiyse
+    if (userId && secret && window.location.search.includes('expire')) {
+        switchPage('resetConfirmPage');
+    } 
+    // Eğer doğrulama linkinden gelindiyse
+    else if (userId && secret) {
       try {
         await account.updateVerification(userId, secret);
-        alert("Email verified successfully! You can now login.");
-        window.history.replaceState({}, document.title, window.location.pathname);
-      } catch (e) {
-        console.error("Verification error", e);
-      }
+        alert("Email verified! You can now login.");
+        window.location.href = REDIRECT_URL;
+      } catch (e) { console.error(e); }
     }
   };
+
+  function getEmailFromId(studentId) { return studentId.trim() + "@ogr.ikc.edu.tr"; }
 
   function switchPage(id) {
     document.querySelectorAll('.box').forEach(b => b.classList.add('hidden'));
     document.getElementById(id).classList.remove('hidden');
   }
 
-  function getEmailFromId(studentId) {
-    return studentId.trim() + "@ogr.ikc.edu.tr";
-  }
-
-  async function register() {
-    const studentId = document.getElementById("regStudentId").value;
-    const fullName = document.getElementById("regFullName").value;
-    const pass = document.getElementById("regPass").value;
+  // ŞİFRE SIFIRLAMA MAİLİ GÖNDER
+  async function sendResetEmail() {
+    const studentId = document.getElementById("forgotStudentId").value;
     const email = getEmailFromId(studentId);
+    const msg = document.getElementById("forgotMsg");
 
     try {
-      await account.create(ID.unique(), email, pass, fullName);
-      await account.createEmailSession(email, pass);
-      await account.createVerification(REDIRECT_URL); // Doğrulama mailini tetikle
-      
-      alert("Verification email sent to " + email + ". Please check your inbox!");
-      await account.deleteSession('current');
-      switchPage('loginPage');
-    } catch (e) {
-      document.getElementById("regMsg").innerText = "Error: " + e.message;
-    }
-  }
-
-  async function login() {
-    const studentId = document.getElementById("loginStudentId").value;
-    const pass = document.getElementById("loginPass").value;
-    const email = getEmailFromId(studentId);
-    const msg = document.getElementById("loginMsg");
-
-    try {
-      await account.createEmailSession(email, pass);
-      currentUser = await account.get();
-
-      // Doğrulama kontrolü
-      if (!currentUser.emailVerification) {
-        msg.style.color = "orange";
-        msg.innerText = "Please verify your email before logging in.";
-        await account.deleteSession('current');
-        return;
-      }
-
-      document.getElementById("welcomeMsg").innerText = "Welcome, " + currentUser.name;
-      switchPage('bookingPage');
-    } catch (e) {
-      msg.style.color = "red";
-      msg.innerText = "Login failed: Invalid ID or Password.";
-    }
-  }
-
-  async function bookAppointment() {
-    const date = document.getElementById("date").value;
-    const time = document.getElementById("time").value;
-    const msg = document.getElementById("bookMsg");
-    try {
-      await databases.createDocument(DATABASE_ID, COLLECTION_ID, ID.unique(), {
-        name: currentUser.name,
-        date: date,
-        time: time
-      });
+      await account.createRecovery(email, REDIRECT_URL); //
       msg.style.color = "green";
-      msg.innerText = "✅ Appointment booked successfully!";
+      msg.innerText = "Reset link sent to " + email;
     } catch (e) {
       msg.style.color = "red";
       msg.innerText = "Error: " + e.message;
     }
   }
 
-  async function logout() { await account.deleteSession('current'); location.reload(); }
+  // YENİ ŞİFREYİ KAYDET
+  async function completeReset() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const userId = urlParams.get('userId');
+    const secret = urlParams.get('secret');
+    const newPass = document.getElementById("newPass").value;
+    const confirm = document.getElementById("newPassConfirm").value;
+
+    if (newPass !== confirm) { alert("Passwords do not match!"); return; }
+
+    try {
+      await account.updateRecovery(userId, secret, newPass, confirm); //
+      alert("Password updated! You can now login with your new password.");
+      window.location.href = REDIRECT_URL;
+    } catch (e) {
+      document.getElementById("resetMsg").innerText = "Error: " + e.message;
+    }
+  }
+
+  // LOGIN, REGISTER ve BOOKING fonksiyonlarını buraya eklemeyi unutma (önceki kodunla aynı)
+  // ... (login, register, bookAppointment, logout fonksiyonları)
 </script>
 </body>
 </html>
