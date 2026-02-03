@@ -2,137 +2,111 @@
 <html lang="tr">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lab Randevu Sistemi - Appwrite</title>
-
+  <title>Lab Randevu Sistemi</title>
   <script src="https://cdn.jsdelivr.net/npm/appwrite@13.0.1"></script>
-
   <style>
-    body {
-      font-family: 'Segoe UI', sans-serif;
-      background: #f0f2f5;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-      margin: 0;
-    }
-    .box {
-      background: #fff;
-      padding: 30px;
-      width: 100%;
-      max-width: 400px;
-      border-radius: 12px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-    }
-    h2 { text-align: center; color: #1a1a1a; margin-bottom: 24px; }
-    label { font-size: 13px; color: #555; display: block; margin-top: 12px; font-weight: 600; }
-    input, button {
-      width: 100%;
-      padding: 12px;
-      margin-top: 6px;
-      border-radius: 8px;
-      border: 1px solid #ddd;
-      box-sizing: border-box;
-      font-size: 15px;
-    }
-    button {
-      background: #fd366e; /* Appwrite pembesi */
-      color: white;
-      border: none;
-      font-weight: bold;
-      cursor: pointer;
-      margin-top: 24px;
-      transition: background 0.2s;
-    }
-    button:hover { background: #e0245e; }
-    button:disabled { background: #ccc; cursor: not-allowed; }
-    .msg {
-      margin-top: 15px;
-      font-size: 14px;
-      text-align: center;
-      font-weight: 500;
-    }
+    body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+    .box { background: #fff; padding: 30px; width: 350px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
+    .hidden { display: none; }
+    h2 { text-align: center; color: #333; }
+    input, button { width: 100%; padding: 12px; margin-top: 10px; border-radius: 8px; border: 1px solid #ddd; box-sizing: border-box; }
+    button { background: #fd366e; color: white; border: none; font-weight: bold; cursor: pointer; }
+    .links { margin-top: 15px; text-align: center; font-size: 13px; }
+    .links a { color: #0066cc; text-decoration: none; cursor: pointer; display: block; margin-top: 5px; }
+    .msg { margin-top: 10px; text-align: center; font-size: 14px; }
   </style>
 </head>
 <body>
 
-<div class="box">
-  <h2>Laboratuvar Randevu</h2>
+<div id="loginPage" class="box">
+  <h2>Giriş Yap</h2>
+  <input id="loginEmail" type="email" placeholder="E-posta (ID)">
+  <input id="loginPass" type="password" placeholder="Şifre">
+  <button onclick="girisYap()">Giriş Yap</button>
+  
+  <div class="links">
+    <a onclick="sayfaDegistir('registerPage')">Yeni Üye Ol</a>
+    <a onclick="sifreUnuttum()">Şifremi Unuttum?</a>
+  </div>
+  <div id="loginMsg" class="msg"></div>
+</div>
 
-  <label for="name">Ad Soyad</label>
-  <input id="name" type="text" placeholder="Student ID">
+<div id="registerPage" class="box hidden">
+  <h2>Kayıt Ol</h2>
+  <input id="regName" type="text" placeholder="Ad Soyad">
+  <input id="regEmail" type="email" placeholder="E-posta">
+  <input id="regPass" type="password" placeholder="Şifre">
+  <button onclick="kayitOl()">Üye Ol</button>
+  <div class="links"><a onclick="sayfaDegistir('loginPage')">Geri Dön</a></div>
+  <div id="regMsg" class="msg"></div>
+</div>
 
-  <label for="date">Tarih</label>
+<div id="bookingPage" class="box hidden">
+  <h2 id="welcomeMsg">Hoş Geldin</h2>
+  <p style="text-align: center; font-size: 14px; color: #666;">Laboratuvar Randevusu Al</p>
   <input id="date" type="date">
-
-  <label for="time">Saat</label>
   <input id="time" type="time">
-
-  <button id="submitBtn" onclick="randevuAl()">Randevu Al</button>
-
-  <div id="message" class="msg"></div>
+  <button onclick="randevuAl()">Randevu Al</button>
+  <button style="background:#555; margin-top:5px;" onclick="cikisYap()">Çıkış Yap</button>
+  <div id="bookMsg" class="msg"></div>
 </div>
 
 <script>
-  // 🔑 Appwrite Ayarları - Buradaki bilgileri Dashboard'dan alıp güncelle!
-  const { Client, Databases, ID } = Appwrite;
-  
-  const client = new Client()
-    .setEndpoint('https://cloud.appwrite.io/v1') // Değişmez
-    .setProject('6981c32f00212fb21625');       // Settings -> Project ID
-
+  const { Client, Account, Databases, ID } = Appwrite;
+  const client = new Client().setEndpoint('https://cloud.appwrite.io/v1').setProject('6981c32f00212fb21625');
+  const account = new Account(client);
   const databases = new Databases(client);
 
-  const DATABASE_ID = '6981c42a00202c6cdf0e';   // Databases -> Database ID
-  const COLLECTION_ID = 'appointments'; // Collection -> Collection ID
+  const DATABASE_ID = '6981c42a00202c6cdf0e'; 
+  const COLLECTION_ID = 'appointments';
+  let currentUser = null;
 
-  /* 📅 Randevu Alma Fonksiyonu */
+  // Sayfalar arası geçiş
+  function sayfaDegistir(pageId) {
+    document.querySelectorAll('.box').forEach(b => b.classList.add('hidden'));
+    document.getElementById(pageId).classList.remove('hidden');
+  }
+
+  // ÜYE OL
+  async function kayitOl() {
+    const name = document.getElementById("regName").value;
+    const email = document.getElementById("regEmail").value;
+    const pass = document.getElementById("regPass").value;
+    try {
+      await account.create(ID.unique(), email, pass, name);
+      alert("Üyelik başarılı! Giriş yapabilirsiniz.");
+      sayfaDegistir('loginPage');
+    } catch (e) { document.getElementById("regMsg").innerText = "Hata: " + e.message; }
+  }
+
+  // GİRİŞ YAP
+  async function girisYap() {
+    const email = document.getElementById("loginEmail").value;
+    const pass = document.getElementById("loginPass").value;
+    try {
+      await account.createEmailSession(email, pass);
+      currentUser = await account.get();
+      document.getElementById("welcomeMsg").innerText = "Merhaba, " + currentUser.name;
+      sayfaDegistir('bookingPage');
+    } catch (e) { document.getElementById("loginMsg").innerText = "Giriş Başarısız: " + e.message; }
+  }
+
+  // RANDEVU AL
   async function randevuAl() {
-    const btn = document.getElementById("submitBtn");
-    const msg = document.getElementById("message");
-    
-    const name = document.getElementById("name").value.trim();
     const date = document.getElementById("date").value;
     const time = document.getElementById("time").value;
-
-    if (!name || !date || !time) {
-      msg.style.color = "#d93025";
-      msg.innerText = "❗ Lütfen tüm alanları doldurun";
-      return;
-    }
-
-    btn.disabled = true;
-    btn.innerText = "Kaydediliyor...";
-    msg.innerText = "";
-
     try {
-      // Appwrite Veritabanına Doküman Ekleme
-      await databases.createDocument(
-        DATABASE_ID,
-        COLLECTION_ID,
-        ID.unique(), // Otomatik benzersiz ID üretir
-        { name, date, time }
-      );
-
-      msg.style.color = "#188038";
-      msg.innerText = "✅ Randevu başarıyla oluşturuldu!";
-      
-      // Formu temizle
-      document.getElementById("name").value = "";
-      document.getElementById("date").value = "";
-      document.getElementById("time").value = "";
-
-    } catch (error) {
-      msg.style.color = "#d93025";
-      msg.innerText = "❌ Hata: " + error.message;
-      console.error("Appwrite Hatası:", error);
-    } finally {
-      btn.disabled = false;
-      btn.innerText = "Randevu Al";
-    }
+      await databases.createDocument(DATABASE_ID, COLLECTION_ID, ID.unique(), {
+        name: currentUser.name, // İsmi otomatik kullanıcı profilinden alırız
+        date: date,
+        time: time
+      });
+      alert("✅ Randevu alındı!");
+    } catch (e) { alert("Hata: " + e.message); }
   }
-</script>
 
+  function sifreUnuttum() { alert("Şifre sıfırlama özelliği yakında eklenecek."); }
+  async function cikisYap() { await account.deleteSession('current'); location.reload(); }
+</script>
 </body>
 </html>
