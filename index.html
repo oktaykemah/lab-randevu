@@ -2,16 +2,19 @@
 <html lang="tr">
 <head>
   <meta charset="UTF-8">
-  <title>Laboratuvar Randevu Sistemi</title>
+  <title>Laboratuvar Randevu</title>
+
+  <!-- Supabase kütüphanesi -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
   <style>
     body {
       font-family: Arial, sans-serif;
-      background: #f4f6f8;
-      padding: 30px;
+      background: #eef2f5;
+      padding: 40px;
     }
     .box {
-      background: white;
+      background: #fff;
       padding: 20px;
       max-width: 400px;
       margin: auto;
@@ -23,7 +26,7 @@
       margin-top: 10px;
     }
     button {
-      background: #007bff;
+      background: #0066cc;
       color: white;
       border: none;
       cursor: pointer;
@@ -34,6 +37,7 @@
     }
   </style>
 </head>
+
 <body>
 
 <div class="box">
@@ -49,10 +53,16 @@
 </div>
 
 <script>
-  const supabaseUrl = "https://qrqosoqhdcpgjrtisjti.supabase.co";
-  const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFycW9zb3FoZGNwZ3JqdGlzanRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAxMDMxMDAsImV4cCI6MjA4NTY3OTEwMH0.tpU50mxPcVu1tr5IdiMpu1FHmRG5UGNXmUUvSHdhi5E";
-  const supabase = supabase.createClient(supabaseUrl, supabaseKey);
+  /* 🔑 Supabase bağlantısı */
+  const SUPABASE_URL = "https://qrqosoqhdcpgjrtisjti.supabase.co";
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFycW9zb3FoZGNwZ3JqdGlzanRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAxMDMxMDAsImV4cCI6MjA4NTY3OTEwMH0.tpU50mxPcVu1tr5IdiMpu1FHmRG5UGNXmUUvSHdhi5E";
 
+  const client = supabase.createClient(
+    SUPABASE_URL,
+    SUPABASE_ANON_KEY
+  );
+
+  /* 📅 Randevu alma fonksiyonu */
   async function randevuAl() {
     const name = document.getElementById("name").value.trim();
     const date = document.getElementById("date").value;
@@ -67,17 +77,16 @@
       return;
     }
 
-    const { error } = await supabase
+    const { error } = await client
       .from("appointments")
-      .insert([
-        { name: name, date: date, time: time }
-      ]);
+      .insert([{ name, date, time }]);
 
     if (error) {
       msg.innerText = "❌ Hata: " + error.message;
     } else {
       msg.style.color = "green";
       msg.innerText = "✅ Randevu başarıyla alındı";
+
       document.getElementById("name").value = "";
       document.getElementById("date").value = "";
       document.getElementById("time").value = "";
