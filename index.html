@@ -2,94 +2,152 @@
 <html lang="tr">
 <head>
   <meta charset="UTF-8">
-  <title>Laboratuvar Randevu</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Laboratuvar Randevu Sistemi</title>
 
-  <!-- Supabase kütüphanesi -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
   <style>
     body {
-      font-family: Arial, sans-serif;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       background: #eef2f5;
-      padding: 40px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
     }
     .box {
       background: #fff;
-      padding: 20px;
+      padding: 30px;
+      width: 100%;
       max-width: 400px;
-      margin: auto;
-      border-radius: 8px;
+      border-radius: 12px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+    h2 {
+      text-align: center;
+      color: #333;
+      margin-bottom: 20px;
+    }
+    label {
+      font-size: 14px;
+      color: #666;
+      display: block;
+      margin-top: 10px;
     }
     input, button {
       width: 100%;
-      padding: 10px;
-      margin-top: 10px;
+      padding: 12px;
+      margin-top: 8px;
+      border-radius: 6px;
+      border: 1px solid #ddd;
+      box-sizing: border-box;
     }
     button {
       background: #0066cc;
       color: white;
       border: none;
+      font-weight: bold;
       cursor: pointer;
+      margin-top: 20px;
+      transition: background 0.3s;
+    }
+    button:hover {
+      background: #004a99;
+    }
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
     }
     .msg {
       margin-top: 15px;
-      font-weight: bold;
+      font-size: 14px;
+      text-align: center;
+      min-height: 20px;
     }
   </style>
 </head>
-
 <body>
 
 <div class="box">
   <h2>Randevu Al</h2>
 
-  <input id="name" type="text" placeholder="Ad Soyad">
+  <label for="name">Ad Soyad</label>
+  <input id="name" type="text" placeholder="Örn: Oktay ...">
+
+  <label for="date">Tarih</label>
   <input id="date" type="date">
+
+  <label for="time">Saat</label>
   <input id="time" type="time">
 
-  <button onclick="randevuAl()">Randevu Al</button>
+  <button id="submitBtn" onclick="randevuAl()">Randevu Al</button>
 
   <div id="message" class="msg"></div>
 </div>
 
 <script>
-  /* 🔑 Supabase bağlantısı */
- const SUPABASE_URL = "https://qrqosoqhdcpgjrtisjti.supabase.co";
-  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFycW9zb3FoZGNwZ3JqdGlzanRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAxMDMxMDAsImV4cCI6MjA4NTY3OTEwMH0.tpU50mxPcVu1tr5IdiMpu1FHmRG5UGNXmUUvSHdhi5E";
+  /* 🔑 Supabase Bağlantı Bilgileri */
+  const SUPABASE_URL = "https://qrqosoqhdcpgjrtisjti.supabase.co".trim();
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFycW9zb3FoZGNwZ3JqdGlzanRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAxMDMxMDAsImV4cCI6MjA4NTY3OTEwMH0.tpU50mxPcVu1tr5IdiMpu1FHmRG5UGNXmUUvSHdhi5E".trim();
 
-  const client = supabase.createClient(
-    SUPABASE_URL,
-    SUPABASE_ANON_KEY
-  );
+  // Supabase istemcisini başlat
+  const client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-  /* 📅 Randevu alma fonksiyonu */
+  /* 📅 Randevu Alma Fonksiyonu */
   async function randevuAl() {
-    const name = document.getElementById("name").value.trim();
-    const date = document.getElementById("date").value;
-    const time = document.getElementById("time").value;
+    const btn = document.getElementById("submitBtn");
+    const nameInput = document.getElementById("name");
+    const dateInput = document.getElementById("date");
+    const timeInput = document.getElementById("time");
     const msg = document.getElementById("message");
 
-    msg.style.color = "red";
-    msg.innerText = "";
+    const name = nameInput.value.trim();
+    const date = dateInput.value;
+    const time = timeInput.value;
 
+    // Temizle
+    msg.innerText = "";
+    
+    // Basit Doğrulama
     if (!name || !date || !time) {
+      msg.style.color = "red";
       msg.innerText = "❗ Lütfen tüm alanları doldurun";
       return;
     }
 
-    const { error } = await client
-      .from("appointments")
-      .insert([{ name, date, time }]);
+    // Yükleniyor Durumu
+    btn.disabled = true;
+    btn.innerText = "Kaydediliyor...";
 
-    if (error) {
-      msg.innerText = "❌ Hata: " + error.message;
-    } else {
+    try {
+      const { error } = await client
+        .from("appointments")
+        .insert([{ name, date, time }]);
+
+      if (error) {
+        throw error;
+      }
+
+      // Başarılı
       msg.style.color = "green";
-      msg.innerText = "✅ Randevu başarıyla alındı";
+      msg.innerText = "✅ Randevu başarıyla alındı!";
+      
+      // Formu Sıfırla
+      nameInput.value = "";
+      dateInput.value = "";
+      timeInput.value = "";
 
-      document.getElementById("name").value = "";
-      document.getElementById("date").value = "";
-      document.getElementById("time").value = "";
+    } catch (err) {
+      // Hata Durumu
+      msg.style.color = "red";
+      msg.innerText = "❌ Hata: " + (err.message || "Bağlantı sorunu oluştu");
+      console.error("Supabase Hatası:", err);
+    } finally {
+      // Butonu Eski Haline Getir
+      btn.disabled = false;
+      btn.innerText = "Randevu Al";
     }
   }
 </script>
