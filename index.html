@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>IKC Lab Booking - v1.0.7</title>
+  <title>IKC Lab Booking - v1.0.8</title>
   <script src="https://cdn.jsdelivr.net/npm/appwrite@13.0.1"></script>
   <style>
     .version { position: absolute; top: 10px; left: 10px; font-size: 12px; color: #999; font-weight: bold; }
@@ -22,12 +22,12 @@
 </head>
 <body>
 
-<div class="version">v1.0.7</div>
+<div class="version">v1.0.8</div>
 <div class="lang-switcher"><button class="lang-btn" onclick="toggleLanguage()" id="langBtn">EN</button></div>
 
 <div id="loadingPage" class="box hidden">
-  <h2 id="loadingText">Sistem Kontrol Ediliyor...</h2>
-  <p style="text-align: center;">Lütfen bekleyin, işleminiz tamamlanıyor.</p>
+  <h2 id="loadingText">Verifying Account...</h2>
+  <p style="text-align: center;">Please wait while we complete your verification.</p>
 </div>
 
 <div id="loginPage" class="box">
@@ -39,7 +39,6 @@
   <button class="main-btn" onclick="login()" data-key="signInBtn">Giriş Yap</button>
   <div class="links">
     <a onclick="switchPage('registerPage')" data-key="createAccLink">Yeni Hesap Oluştur</a>
-    <a onclick="switchPage('forgotPage')" data-key="forgotPassLink">Şifremi Unuttum</a>
   </div>
 </div>
 
@@ -50,24 +49,9 @@
   <label data-key="nameLabel">Ad Soyad</label>
   <input id="regFullName" type="text" placeholder="John Doe">
   <label data-key="passLabel">Şifre</label>
-  <input id="regPass" type="password" placeholder="******">
+  <input id="regPass" type="password">
   <button class="main-btn" onclick="register()" data-key="signUpBtn">Kayıt Ol</button>
   <div class="links"><a onclick="switchPage('loginPage')" data-key="backBtn">Geri Dön</a></div>
-</div>
-
-<div id="forgotPage" class="box hidden">
-  <h2 data-key="forgotPassLink">Şifre Sıfırlama</h2>
-  <label data-key="studentIdLabel">Öğrenci Numarası</label>
-  <input id="forgotId" type="text" placeholder="160411006">
-  <button class="main-btn" onclick="sendResetEmail()" data-key="sendLinkBtn">Link Gönder</button>
-  <div class="links"><a onclick="switchPage('loginPage')" data-key="backBtn">Geri Dön</a></div>
-</div>
-
-<div id="resetConfirmPage" class="box hidden">
-  <h2 data-key="newPassTitle">Yeni Şifre</h2>
-  <label data-key="newPassLabel">Yeni Şifre</label>
-  <input id="newPass" type="password">
-  <button class="main-btn" onclick="completeReset()" data-key="updatePassBtn">Güncelle</button>
 </div>
 
 <div id="bookingPage" class="box hidden">
@@ -96,19 +80,15 @@
   const translations = {
     tr: {
       loginTitle: "Giriş Yap", studentIdLabel: "Öğrenci Numarası", passLabel: "Şifre", signInBtn: "Giriş Yap",
-      createAccLink: "Yeni Hesap Oluştur", forgotPassLink: "Şifremi Unuttum", regTitle: "Kayıt Ol",
-      nameLabel: "Ad Soyad", signUpBtn: "Kayıt Ol", backBtn: "Geri Dön", sendLinkBtn: "Link Gönder",
-      newPassTitle: "Yeni Şifre", newPassLabel: "Yeni Şifre", updatePassBtn: "Güncelle",
-      dateLabel: "Tarih Seçin", timeLabel: "Saat Seçin", bookBtn: "Randevu Al", logoutBtn: "Çıkış Yap",
-      verifyMsg: "Lütfen mailinizi onaylayın!"
+      createAccLink: "Yeni Hesap Oluştur", regTitle: "Kayıt Ol", nameLabel: "Ad Soyad", signUpBtn: "Kayıt Ol",
+      backBtn: "Geri Dön", dateLabel: "Tarih Seçin", timeLabel: "Saat Seçin", bookBtn: "Randevu Al", 
+      logoutBtn: "Çıkış Yap", verifyMsg: "Lütfen mailinizi onaylayın!"
     },
     en: {
       loginTitle: "Login", studentIdLabel: "Student ID", passLabel: "Password", signInBtn: "Sign In",
-      createAccLink: "Create New Account", forgotPassLink: "Forgot Password?", regTitle: "Register",
-      nameLabel: "Full Name", signUpBtn: "Sign Up", backBtn: "Back", sendLinkBtn: "Send Link",
-      newPassTitle: "New Password", newPassLabel: "New Password", updatePassBtn: "Update",
-      dateLabel: "Select Date", timeLabel: "Select Time", bookBtn: "Book Now", logoutBtn: "Logout",
-      verifyMsg: "Please verify your email!"
+      createAccLink: "Create New Account", regTitle: "Register", nameLabel: "Full Name", signUpBtn: "Sign Up",
+      backBtn: "Back", dateLabel: "Select Date", timeLabel: "Select Time", bookBtn: "Book Now", 
+      logoutBtn: "Logout", verifyMsg: "Please verify your email!"
     }
   };
 
@@ -125,28 +105,22 @@
     updateUI();
   }
 
+  // Sadeleştirilmiş URL Doğrulama Kontrolü
   window.onload = async () => {
     updateUI();
     const urlParams = new URLSearchParams(window.location.search);
     const userId = urlParams.get('userId');
     const secret = urlParams.get('secret');
-    const expire = urlParams.get('expire'); // İşte kritik nokta
 
     if (userId && secret) {
-      if (expire) {
-        // Eğer expire varsa, link Şifre Kurtarma linkidir.
-        switchPage('resetConfirmPage');
-      } else {
-        // Eğer expire yoksa, link E-posta Doğrulama linkidir.
-        switchPage('loadingPage');
-        try {
-          await account.updateVerification(userId, secret);
-          alert(currentLang === 'tr' ? "E-posta başarıyla doğrulandı!" : "Email verified!");
-          window.location.href = REDIRECT_URL;
-        } catch (e) {
-          alert("Hata: " + e.message);
-          window.location.href = REDIRECT_URL;
-        }
+      switchPage('loadingPage');
+      try {
+        await account.updateVerification(userId, secret); //
+        alert(currentLang === 'tr' ? "Hesabınız doğrulandı! Giriş yapabilirsiniz." : "Account verified! You can login.");
+        window.location.href = REDIRECT_URL;
+      } catch (e) {
+        alert("Verification failed: " + e.message);
+        window.location.href = REDIRECT_URL;
       }
     }
   };
@@ -164,20 +138,14 @@
     const pass = document.getElementById("regPass").value;
     const email = getEmail(studentId);
 
-    if(!studentId || !fullName || !pass) { alert("Lütfen tüm alanları doldurun!"); return; }
-
     try {
-      // Önce hesap oluşturulur
       await account.create(ID.unique(), email, pass, fullName);
-      // Doğrulama maili gönderebilmek için geçici bir oturum açılmalıdır
       await account.createEmailSession(email, pass);
-      // Doğrulama maili tetiklenir
-      await account.createVerification(REDIRECT_URL);
-      alert("Doğrulama maili gönderildi. Lütfen gelen kutunuzu kontrol edin.");
-      // Oturum kapatılır (Kullanıcı doğrulanana kadar giriş yapamamalı)
+      await account.createVerification(REDIRECT_URL); //
+      alert("Verification email sent to " + email);
       await account.deleteSession('current');
       switchPage('loginPage');
-    } catch (e) { alert("Kayıt hatası: " + e.message); }
+    } catch (e) { alert("Error: " + e.message); }
   }
 
   async function login() {
@@ -186,32 +154,14 @@
     try {
       await account.createEmailSession(email, pass);
       currentUser = await account.get();
-      if (!currentUser.emailVerification) {
+      if (!currentUser.emailVerification) { //
         alert(translations[currentLang].verifyMsg);
         await account.deleteSession('current');
         return;
       }
-      document.getElementById("welcomeMsg").innerText = "Merhaba, " + currentUser.name;
+      document.getElementById("welcomeMsg").innerText = "Welcome, " + currentUser.name;
       switchPage('bookingPage');
-    } catch (e) { alert("Giriş yapılamadı. Şifrenizi veya mail onayınızı kontrol edin."); }
-  }
-
-  async function sendResetEmail() {
-    const email = getEmail(document.getElementById("forgotId").value);
-    try {
-      await account.createRecovery(email, REDIRECT_URL);
-      alert("Şifre sıfırlama linki gönderildi!");
-    } catch (e) { alert(e.message); }
-  }
-
-  async function completeReset() {
-    const urlParams = new URLSearchParams(window.location.search);
-    const pass = document.getElementById("newPass").value;
-    try {
-      await account.updateRecovery(urlParams.get('userId'), urlParams.get('secret'), pass, pass);
-      alert("Şifreniz başarıyla güncellendi!");
-      window.location.href = REDIRECT_URL;
-    } catch (e) { alert(e.message); }
+    } catch (e) { alert("Login failed. Check your ID/Password or Email Verification."); }
   }
 
   async function bookAppointment() {
@@ -219,7 +169,7 @@
       await databases.createDocument(DATABASE_ID, COLLECTION_ID, ID.unique(), {
         name: currentUser.name, date: document.getElementById("date").value, time: document.getElementById("time").value
       });
-      alert("Randevu başarıyla alındı!");
+      alert("Booked successfully!");
     } catch (e) { alert(e.message); }
   }
 
