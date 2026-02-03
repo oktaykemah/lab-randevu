@@ -1,19 +1,21 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="tr">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>IKC Lab Booking - v1.0.0</title>
+  <title>IKC Lab Booking - v1.0.1</title>
   <script src="https://cdn.jsdelivr.net/npm/appwrite@13.0.1"></script>
   <style>
-    /* Version Number Style */
+    /* UI Elements */
     .version { position: absolute; top: 10px; left: 10px; font-size: 12px; color: #999; font-weight: bold; }
+    .lang-switcher { position: absolute; top: 10px; right: 10px; }
+    .lang-btn { background: #fff; border: 1px solid #ddd; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 12px; font-weight: bold; }
     
     body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
     .box { background: #fff; padding: 30px; width: 350px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); position: relative; }
     .hidden { display: none; }
     h2 { text-align: center; color: #333; margin-bottom: 20px; }
-    label { font-size: 13px; color: #666; font-weight: bold; }
+    label { font-size: 13px; color: #666; font-weight: bold; display: block; margin-top: 10px; }
     input, button { width: 100%; padding: 12px; margin-top: 8px; border-radius: 8px; border: 1px solid #ddd; box-sizing: border-box; }
     button { background: #0066cc; color: white; border: none; font-weight: bold; cursor: pointer; margin-top: 15px; transition: background 0.3s; }
     button:hover { background: #004a99; }
@@ -24,43 +26,72 @@
 </head>
 <body>
 
-<div class="version">v1.0.0</div>
+<div class="version">v1.0.1</div>
+<div class="lang-switcher">
+  <button class="lang-btn" onclick="toggleLanguage()" id="langBtn">EN</button>
+</div>
 
 <div id="loginPage" class="box">
-  <h2>Login</h2>
-  <label>Student ID</label>
+  <h2 data-key="loginTitle">Giriş Yap</h2>
+  <label data-key="studentIdLabel">Öğrenci Numarası</label>
   <input id="loginStudentId" type="text" placeholder="e.g., 160411006">
-  <label>Password</label>
-  <input id="loginPass" type="password" placeholder="Your Password">
-  <button onclick="login()">Sign In</button>
+  <label data-key="passLabel">Şifre</label>
+  <input id="loginPass" type="password" placeholder="******">
+  <button onclick="login()" data-key="signInBtn">Giriş Yap</button>
   <div class="links">
-    <a onclick="switchPage('registerPage')">Create New Account</a>
-    <a onclick="switchPage('forgotPage')">Forgot Password?</a>
+    <a onclick="switchPage('registerPage')" data-key="createAccLink">Yeni Hesap Oluştur</a>
+    <a onclick="switchPage('forgotPage')" data-key="forgotPassLink">Şifremi Unuttum</a>
   </div>
   <div id="loginMsg" class="msg"></div>
 </div>
 
+<div id="registerPage" class="box hidden">
+  <h2 data-key="regTitle">Kayıt Ol</h2>
+  <label data-key="studentIdLabel">Öğrenci Numarası</label>
+  <input id="regStudentId" type="text" placeholder="160411006">
+  <label data-key="nameLabel">Ad Soyad</label>
+  <input id="regFullName" type="text" placeholder="John Doe">
+  <label data-key="passLabel">Şifre</label>
+  <input id="regPass" type="password" placeholder="Min. 8 Karakter">
+  <button onclick="register()" data-key="signUpBtn">Kayıt Ol</button>
+  <div class="links"><a onclick="switchPage('loginPage')" data-key="backBtn">Geri Dön</a></div>
+  <div id="regMsg" class="msg"></div>
+</div>
+
 <div id="forgotPage" class="box hidden">
-  <h2>Reset Password</h2>
-  <p style="font-size: 13px; color: #666; text-align: center;">Enter your Student ID to receive a reset link.</p>
-  <label>Student ID</label>
-  <input id="forgotStudentId" type="text" placeholder="e.g., 160411006">
-  <button onclick="sendResetEmail()">Send Reset Email</button>
-  <div class="links"><a onclick="switchPage('loginPage')">Back to Login</a></div>
+  <h2 data-key="forgotPassLink">Şifre Sıfırlama</h2>
+  <p style="font-size: 12px; color: #666; text-align: center;" data-key="forgotDesc">Sıfırlama linki için öğrenci numaranızı girin.</p>
+  <label data-key="studentIdLabel">Öğrenci Numarası</label>
+  <input id="forgotStudentId" type="text" placeholder="160411006">
+  <button onclick="sendResetEmail()" data-key="sendLinkBtn">Sıfırlama Linki Gönder</button>
+  <div class="links"><a onclick="switchPage('loginPage')" data-key="backBtn">Geri Dön</a></div>
   <div id="forgotMsg" class="msg"></div>
 </div>
 
 <div id="resetConfirmPage" class="box hidden">
-  <h2>New Password</h2>
-  <label>New Password</label>
-  <input id="newPass" type="password" placeholder="Min. 8 characters">
-  <label>Confirm Password</label>
-  <input id="newPassConfirm" type="password" placeholder="Re-type password">
-  <button onclick="completeReset()">Update Password</button>
+  <h2 data-key="newPassTitle">Yeni Şifre</h2>
+  <label data-key="newPassLabel">Yeni Şifre</label>
+  <input id="newPass" type="password">
+  <label data-key="confirmPassLabel">Şifreyi Onayla</label>
+  <input id="newPassConfirm" type="password">
+  <button onclick="completeReset()" data-key="updatePassBtn">Şifreyi Güncelle</button>
   <div id="resetMsg" class="msg"></div>
 </div>
 
+<div id="bookingPage" class="box hidden">
+  <h2 id="welcomeMsg">Hoş Geldin</h2>
+  <p style="text-align: center; font-size: 14px; color: #666;" data-key="bookTitle">Laboratuvar Randevusu</p>
+  <label data-key="dateLabel">Tarih Seçin</label>
+  <input id="date" type="date">
+  <label data-key="timeLabel">Saat Seçin</label>
+  <input id="time" type="time">
+  <button onclick="bookAppointment()" data-key="bookBtn">Randevu Al</button>
+  <button style="background:#555;" onclick="logout()" data-key="logoutBtn">Çıkış Yap</button>
+  <div id="bookMsg" class="msg"></div>
+</div>
+
 <script>
+  // Appwrite Setup
   const { Client, Account, Databases, ID } = Appwrite;
   const client = new Client().setEndpoint('https://cloud.appwrite.io/v1').setProject('6981c32f00212fb21625');
   const account = new Account(client);
@@ -71,71 +102,131 @@
   const REDIRECT_URL = "https://oktaykemah.github.io/lab-randevu/"; 
 
   let currentUser = null;
+  let currentLang = localStorage.getItem('lang') || 'tr';
+
+  const translations = {
+    tr: {
+      loginTitle: "Giriş Yap", studentIdLabel: "Öğrenci Numarası", passLabel: "Şifre", signInBtn: "Giriş Yap",
+      createAccLink: "Yeni Hesap Oluştur", forgotPassLink: "Şifremi Unuttum", regTitle: "Kayıt Ol",
+      nameLabel: "Ad Soyad", signUpBtn: "Kayıt Ol", backBtn: "Geri Dön", forgotDesc: "Sıfırlama linki için öğrenci numaranızı girin.",
+      sendLinkBtn: "Sıfırlama Linki Gönder", newPassTitle: "Yeni Şifre", newPassLabel: "Yeni Şifre",
+      confirmPassLabel: "Şifreyi Onayla", updatePassBtn: "Şifreyi Güncelle", bookTitle: "Laboratuvar Randevusu",
+      dateLabel: "Tarih Seçin", timeLabel: "Saat Seçin", bookBtn: "Randevu Al", logoutBtn: "Çıkış Yap",
+      verifyMsg: "Lütfen e-postanızı doğrulayın!", errorMsg: "Hata oluştu.", successBook: "Randevu başarıyla alındı!"
+    },
+    en: {
+      loginTitle: "Login", studentIdLabel: "Student ID", passLabel: "Password", signInBtn: "Sign In",
+      createAccLink: "Create New Account", forgotPassLink: "Forgot Password?", regTitle: "Register",
+      nameLabel: "Full Name", signUpBtn: "Sign Up", backBtn: "Back", forgotDesc: "Enter Student ID for reset link.",
+      sendLinkBtn: "Send Reset Link", newPassTitle: "New Password", newPassLabel: "New Password",
+      confirmPassLabel: "Confirm Password", updatePassBtn: "Update Password", bookTitle: "Lab Appointment",
+      dateLabel: "Select Date", timeLabel: "Select Time", bookBtn: "Book Now", logoutBtn: "Logout",
+      verifyMsg: "Please verify your email!", errorMsg: "An error occurred.", successBook: "Appointment booked!"
+    }
+  };
+
+  function updateUI() {
+    document.querySelectorAll('[data-key]').forEach(el => {
+      const key = el.getAttribute('data-key');
+      el.innerText = translations[currentLang][key];
+    });
+    document.getElementById('langBtn').innerText = currentLang === 'tr' ? 'EN' : 'TR';
+    document.documentElement.lang = currentLang;
+  }
+
+  function toggleLanguage() {
+    currentLang = currentLang === 'tr' ? 'en' : 'tr';
+    localStorage.setItem('lang', currentLang);
+    updateUI();
+  }
 
   window.onload = async () => {
+    updateUI();
     const urlParams = new URLSearchParams(window.location.search);
     const userId = urlParams.get('userId');
     const secret = urlParams.get('secret');
-    const type = urlParams.get('type'); // Appwrite recovery tipini anlamak için
 
-    // Eğer şifre sıfırlama linkinden gelindiyse
     if (userId && secret && window.location.search.includes('expire')) {
-        switchPage('resetConfirmPage');
-    } 
-    // Eğer doğrulama linkinden gelindiyse
-    else if (userId && secret) {
+      switchPage('resetConfirmPage');
+    } else if (userId && secret) {
       try {
         await account.updateVerification(userId, secret);
-        alert("Email verified! You can now login.");
+        alert(currentLang === 'tr' ? "E-posta doğrulandı!" : "Email verified!");
         window.location.href = REDIRECT_URL;
       } catch (e) { console.error(e); }
     }
   };
-
-  function getEmailFromId(studentId) { return studentId.trim() + "@ogr.ikc.edu.tr"; }
 
   function switchPage(id) {
     document.querySelectorAll('.box').forEach(b => b.classList.add('hidden'));
     document.getElementById(id).classList.remove('hidden');
   }
 
-  // ŞİFRE SIFIRLAMA MAİLİ GÖNDER
-  async function sendResetEmail() {
-    const studentId = document.getElementById("forgotStudentId").value;
-    const email = getEmailFromId(studentId);
-    const msg = document.getElementById("forgotMsg");
+  function getEmailFromId(studentId) { return studentId.trim() + "@ogr.ikc.edu.tr"; }
 
+  async function register() {
+    const studentId = document.getElementById("regStudentId").value;
+    const fullName = document.getElementById("regFullName").value;
+    const pass = document.getElementById("regPass").value;
+    const email = getEmailFromId(studentId);
     try {
-      await account.createRecovery(email, REDIRECT_URL); //
-      msg.style.color = "green";
-      msg.innerText = "Reset link sent to " + email;
-    } catch (e) {
-      msg.style.color = "red";
-      msg.innerText = "Error: " + e.message;
-    }
+      await account.create(ID.unique(), email, pass, fullName);
+      await account.createEmailSession(email, pass);
+      await account.createVerification(REDIRECT_URL);
+      alert(currentLang === 'tr' ? "Doğrulama maili gönderildi: " + email : "Verification email sent to: " + email);
+      await account.deleteSession('current');
+      switchPage('loginPage');
+    } catch (e) { document.getElementById("regMsg").innerText = e.message; }
   }
 
-  // YENİ ŞİFREYİ KAYDET
+  async function login() {
+    const studentId = document.getElementById("loginStudentId").value;
+    const pass = document.getElementById("loginPass").value;
+    const email = getEmailFromId(studentId);
+    try {
+      await account.createEmailSession(email, pass);
+      currentUser = await account.get();
+      if (!currentUser.emailVerification) {
+        alert(translations[currentLang].verifyMsg);
+        await account.deleteSession('current');
+        return;
+      }
+      document.getElementById("welcomeMsg").innerText = (currentLang === 'tr' ? "Merhaba, " : "Welcome, ") + currentUser.name;
+      switchPage('bookingPage');
+    } catch (e) { alert(currentLang === 'tr' ? "Giriş başarısız!" : "Login failed!"); }
+  }
+
+  async function sendResetEmail() {
+    const email = getEmailFromId(document.getElementById("forgotStudentId").value);
+    try {
+      await account.createRecovery(email, REDIRECT_URL);
+      alert(currentLang === 'tr' ? "Sıfırlama linki gönderildi." : "Reset link sent.");
+    } catch (e) { alert(e.message); }
+  }
+
   async function completeReset() {
     const urlParams = new URLSearchParams(window.location.search);
-    const userId = urlParams.get('userId');
-    const secret = urlParams.get('secret');
     const newPass = document.getElementById("newPass").value;
     const confirm = document.getElementById("newPassConfirm").value;
-
-    if (newPass !== confirm) { alert("Passwords do not match!"); return; }
-
     try {
-      await account.updateRecovery(userId, secret, newPass, confirm); //
-      alert("Password updated! You can now login with your new password.");
+      await account.updateRecovery(urlParams.get('userId'), urlParams.get('secret'), newPass, confirm);
+      alert(currentLang === 'tr' ? "Şifre güncellendi!" : "Password updated!");
       window.location.href = REDIRECT_URL;
-    } catch (e) {
-      document.getElementById("resetMsg").innerText = "Error: " + e.message;
-    }
+    } catch (e) { alert(e.message); }
   }
 
-  // LOGIN, REGISTER ve BOOKING fonksiyonlarını buraya eklemeyi unutma (önceki kodunla aynı)
-  // ... (login, register, bookAppointment, logout fonksiyonları)
+  async function bookAppointment() {
+    const date = document.getElementById("date").value;
+    const time = document.getElementById("time").value;
+    try {
+      await databases.createDocument(DATABASE_ID, COLLECTION_ID, ID.unique(), {
+        name: currentUser.name, date: date, time: time
+      });
+      alert(translations[currentLang].successBook);
+    } catch (e) { alert(e.message); }
+  }
+
+  async function logout() { await account.deleteSession('current'); location.reload(); }
 </script>
 </body>
 </html>
