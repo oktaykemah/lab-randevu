@@ -3,31 +3,38 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>IKC Lab Booking - v1.0.8</title>
+  <title>IKC Lab Booking - v1.1.0</title>
   <script src="https://cdn.jsdelivr.net/npm/appwrite@13.0.1"></script>
   <style>
     .version { position: absolute; top: 10px; left: 10px; font-size: 12px; color: #999; font-weight: bold; }
     .lang-switcher { position: absolute; top: 10px; right: 10px; }
     .lang-btn { background: #fff; border: 2px solid #0066cc; color: #0066cc; padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: bold; }
-    body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-    .box { background: #fff; padding: 30px; width: 350px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); position: relative; }
+    body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }
+    .box { background: #fff; padding: 30px; width: 100%; max-width: 400px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); position: relative; }
+    .booking-container { max-width: 600px; } /* Randevu sayfası biraz daha geniş olsun */
     .hidden { display: none; }
     h2 { text-align: center; color: #333; margin-bottom: 20px; }
     label { font-size: 13px; color: #666; font-weight: bold; display: block; margin-top: 10px; }
     input, button { width: 100%; padding: 12px; margin-top: 8px; border-radius: 8px; border: 1px solid #ddd; box-sizing: border-box; }
     .main-btn { background: #0066cc; color: white; border: none; font-weight: bold; cursor: pointer; margin-top: 15px; }
-    .links { margin-top: 15px; text-align: center; font-size: 13px; }
-    .links a { color: #0066cc; text-decoration: none; cursor: pointer; display: block; margin-top: 8px; }
+    .error-box { background: #ffebee; color: #c62828; padding: 10px; border-radius: 8px; font-size: 12px; margin-top: 10px; border: 1px solid #ef9a9a; display: none; }
+    
+    /* TABLO STİLLERİ */
+    .table-section { margin-top: 30px; border-top: 2px solid #eee; pt: 20px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 14px; }
+    th { background: #f8f9fa; color: #666; text-align: left; padding: 10px; border-bottom: 2px solid #eee; }
+    td { padding: 10px; border-bottom: 1px solid #eee; color: #333; }
+    .no-data { text-align: center; color: #999; padding: 20px; }
   </style>
 </head>
 <body>
 
-<div class="version">v1.0.8</div>
+<div class="version">v1.1.0</div>
 <div class="lang-switcher"><button class="lang-btn" onclick="toggleLanguage()" id="langBtn">EN</button></div>
 
 <div id="loadingPage" class="box hidden">
-  <h2 id="loadingText">Verifying Account...</h2>
-  <p style="text-align: center;">Please wait while we complete your verification.</p>
+  <h2 id="loadingText">İşleniyor...</h2>
+  <p style="text-align: center;">Lütfen bekleyin.</p>
 </div>
 
 <div id="loginPage" class="box">
@@ -35,11 +42,10 @@
   <label data-key="studentIdLabel">Öğrenci Numarası</label>
   <input id="loginStudentId" type="text" placeholder="160411006">
   <label data-key="passLabel">Şifre</label>
-  <input id="loginPass" type="password" placeholder="******">
+  <input id="loginPass" type="password">
   <button class="main-btn" onclick="login()" data-key="signInBtn">Giriş Yap</button>
-  <div class="links">
-    <a onclick="switchPage('registerPage')" data-key="createAccLink">Yeni Hesap Oluştur</a>
-  </div>
+  <div id="loginError" class="error-box"></div>
+  <div style="text-align:center; margin-top:15px;"><a onclick="switchPage('registerPage')" style="color:#0066cc; cursor:pointer; font-size:13px;" data-key="createAccLink">Yeni Hesap Oluştur</a></div>
 </div>
 
 <div id="registerPage" class="box hidden">
@@ -51,21 +57,47 @@
   <label data-key="passLabel">Şifre</label>
   <input id="regPass" type="password">
   <button class="main-btn" onclick="register()" data-key="signUpBtn">Kayıt Ol</button>
-  <div class="links"><a onclick="switchPage('loginPage')" data-key="backBtn">Geri Dön</a></div>
+  <div id="regError" class="error-box"></div>
+  <div style="text-align:center; margin-top:15px;"><a onclick="switchPage('loginPage')" style="color:#0066cc; cursor:pointer; font-size:13px;" data-key="backBtn">Geri Dön</a></div>
 </div>
 
-<div id="bookingPage" class="box hidden">
-  <h2 id="welcomeMsg">Welcome</h2>
-  <label data-key="dateLabel">Tarih</label>
-  <input id="date" type="date">
-  <label data-key="timeLabel">Saat</label>
-  <input id="time" type="time">
+<div id="bookingPage" class="box booking-container hidden">
+  <h2 id="welcomeMsg">Hoş Geldiniz</h2>
+  
+  <div style="display:flex; gap:10px;">
+    <div style="flex:1;">
+      <label data-key="dateLabel">Tarih</label>
+      <input id="date" type="date">
+    </div>
+    <div style="flex:1;">
+      <label data-key="timeLabel">Saat</label>
+      <input id="time" type="time">
+    </div>
+  </div>
+  
   <button class="main-btn" onclick="bookAppointment()" data-key="bookBtn">Randevu Al</button>
-  <button class="main-btn" style="background:#555;" onclick="logout()" data-key="logoutBtn">Logout</button>
+  
+  <div class="table-section">
+    <h3 style="font-size:16px; color:#444;" data-key="myBookingsTitle">Randevularım</h3>
+    <table>
+      <thead>
+        <tr>
+          <th data-key="thDate">Tarih</th>
+          <th data-key="thTime">Saat</th>
+          <th data-key="thStatus">Durum</th>
+        </tr>
+      </thead>
+      <tbody id="appointmentTableBody">
+        </tbody>
+    </table>
+    <div id="noDataMsg" class="no-data hidden" data-key="noData">Henüz randevunuz bulunmuyor.</div>
+  </div>
+
+  <button class="main-btn" style="background:#555; margin-top:30px;" onclick="logout()" data-key="logoutBtn">Çıkış Yap</button>
 </div>
 
 <script>
-  const { Client, Account, Databases, ID } = Appwrite;
+  const { Client, Account, Databases, ID, Query } = Appwrite;
   const client = new Client().setEndpoint('https://cloud.appwrite.io/v1').setProject('6981c32f00212fb21625');
   const account = new Account(client);
   const databases = new Databases(client);
@@ -82,13 +114,15 @@
       loginTitle: "Giriş Yap", studentIdLabel: "Öğrenci Numarası", passLabel: "Şifre", signInBtn: "Giriş Yap",
       createAccLink: "Yeni Hesap Oluştur", regTitle: "Kayıt Ol", nameLabel: "Ad Soyad", signUpBtn: "Kayıt Ol",
       backBtn: "Geri Dön", dateLabel: "Tarih Seçin", timeLabel: "Saat Seçin", bookBtn: "Randevu Al", 
-      logoutBtn: "Çıkış Yap", verifyMsg: "Lütfen mailinizi onaylayın!"
+      logoutBtn: "Çıkış Yap", verifyMsg: "Lütfen mailinizi onaylayın!",
+      myBookingsTitle: "Randevularım", thDate: "Tarih", thTime: "Saat", thStatus: "Durum", noData: "Henüz randevunuz bulunmuyor."
     },
     en: {
       loginTitle: "Login", studentIdLabel: "Student ID", passLabel: "Password", signInBtn: "Sign In",
       createAccLink: "Create New Account", regTitle: "Register", nameLabel: "Full Name", signUpBtn: "Sign Up",
       backBtn: "Back", dateLabel: "Select Date", timeLabel: "Select Time", bookBtn: "Book Now", 
-      logoutBtn: "Logout", verifyMsg: "Please verify your email!"
+      logoutBtn: "Logout", verifyMsg: "Please verify your email!",
+      myBookingsTitle: "My Appointments", thDate: "Date", thTime: "Time", thStatus: "Status", noData: "No appointments yet."
     }
   };
 
@@ -103,25 +137,19 @@
     currentLang = currentLang === 'tr' ? 'en' : 'tr';
     localStorage.setItem('lang', currentLang);
     updateUI();
+    if(currentUser) loadAppointments();
   }
 
-  // Sadeleştirilmiş URL Doğrulama Kontrolü
   window.onload = async () => {
     updateUI();
     const urlParams = new URLSearchParams(window.location.search);
-    const userId = urlParams.get('userId');
-    const secret = urlParams.get('secret');
-
-    if (userId && secret) {
+    if (urlParams.get('userId') && urlParams.get('secret')) {
       switchPage('loadingPage');
       try {
-        await account.updateVerification(userId, secret); //
-        alert(currentLang === 'tr' ? "Hesabınız doğrulandı! Giriş yapabilirsiniz." : "Account verified! You can login.");
+        await account.updateVerification(urlParams.get('userId'), urlParams.get('secret'));
+        alert("Hesap doğrulandı!");
         window.location.href = REDIRECT_URL;
-      } catch (e) {
-        alert("Verification failed: " + e.message);
-        window.location.href = REDIRECT_URL;
-      }
+      } catch (e) { alert(e.message); window.location.href = REDIRECT_URL; }
     }
   };
 
@@ -130,46 +158,78 @@
     document.getElementById(id).classList.remove('hidden');
   }
 
-  function getEmail(id) { return id.trim() + "@ogr.ikc.edu.tr"; }
-
   async function register() {
     const studentId = document.getElementById("regStudentId").value.trim();
     const fullName = document.getElementById("regFullName").value.trim();
     const pass = document.getElementById("regPass").value;
-    const email = getEmail(studentId);
-
     try {
-      await account.create(ID.unique(), email, pass, fullName);
-      await account.createEmailSession(email, pass);
-      await account.createVerification(REDIRECT_URL); //
-      alert("Verification email sent to " + email);
+      await account.create(ID.unique(), studentId + "@ogr.ikc.edu.tr", pass, fullName);
+      await account.createEmailSession(studentId + "@ogr.ikc.edu.tr", pass);
+      await account.createVerification(REDIRECT_URL);
+      alert("Doğrulama maili gönderildi.");
       await account.deleteSession('current');
       switchPage('loginPage');
-    } catch (e) { alert("Error: " + e.message); }
+    } catch (e) { document.getElementById("regError").innerText = e.message; document.getElementById("regError").style.display='block'; }
   }
 
   async function login() {
-    const email = getEmail(document.getElementById("loginStudentId").value);
+    const email = document.getElementById("loginStudentId").value.trim() + "@ogr.ikc.edu.tr";
     const pass = document.getElementById("loginPass").value;
     try {
       await account.createEmailSession(email, pass);
       currentUser = await account.get();
-      if (!currentUser.emailVerification) { //
+      if (!currentUser.emailVerification) {
         alert(translations[currentLang].verifyMsg);
         await account.deleteSession('current');
         return;
       }
-      document.getElementById("welcomeMsg").innerText = "Welcome, " + currentUser.name;
+      document.getElementById("welcomeMsg").innerText = currentLang === 'tr' ? "Merhaba, " + currentUser.name : "Welcome, " + currentUser.name;
       switchPage('bookingPage');
-    } catch (e) { alert("Login failed. Check your ID/Password or Email Verification."); }
+      loadAppointments();
+    } catch (e) { document.getElementById("loginError").innerText = "Giriş başarısız."; document.getElementById("loginError").style.display='block'; }
+  }
+
+  // RANDEVULARI YÜKLEME FONKSİYONU
+  async function loadAppointments() {
+    try {
+      const response = await databases.listDocuments(DATABASE_ID, COLLECTION_ID, [
+        Query.equal('name', currentUser.name), // Sadece bu öğrencinin adıyla eşleşenler
+        Query.orderDesc('$createdAt') // En yeni en üstte
+      ]);
+      
+      const tbody = document.getElementById("appointmentTableBody");
+      const noData = document.getElementById("noDataMsg");
+      tbody.innerHTML = "";
+      
+      if (response.documents.length === 0) {
+        noData.classList.remove("hidden");
+      } else {
+        noData.classList.add("hidden");
+        response.documents.forEach(doc => {
+          const row = `<tr>
+            <td>${doc.date}</td>
+            <td>${doc.time}</td>
+            <td style="color:green; font-weight:bold;">${currentLang === 'tr' ? 'Onaylandı' : 'Confirmed'}</td>
+          </tr>`;
+          tbody.innerHTML += row;
+        });
+      }
+    } catch (e) { console.error("Tablo yüklenirken hata:", e); }
   }
 
   async function bookAppointment() {
+    const dateVal = document.getElementById("date").value;
+    const timeVal = document.getElementById("time").value;
+    if(!dateVal || !timeVal) { alert("Tarih ve saat seçin!"); return; }
+
     try {
       await databases.createDocument(DATABASE_ID, COLLECTION_ID, ID.unique(), {
-        name: currentUser.name, date: document.getElementById("date").value, time: document.getElementById("time").value
+        name: currentUser.name, 
+        date: dateVal, 
+        time: timeVal
       });
-      alert("Booked successfully!");
+      alert("Randevu alındı!");
+      loadAppointments(); // Tabloyu anlık güncelle
     } catch (e) { alert(e.message); }
   }
 
