@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>IKC Lab Booking - v1.1.3</title>
+  <title>IKC Lab Booking - v1.1.6</title>
   <script src="https://cdn.jsdelivr.net/npm/appwrite@13.0.1"></script>
   <style>
     .version { position: absolute; top: 10px; left: 10px; font-size: 12px; color: #999; font-weight: bold; }
@@ -16,23 +16,34 @@
     label { font-size: 13px; color: #666; font-weight: bold; display: block; margin-top: 10px; }
     input, select, button { width: 100%; padding: 12px; margin-top: 8px; border-radius: 8px; border: 1px solid #ddd; box-sizing: border-box; font-size: 14px; }
     .main-btn { background: #0066cc; color: white; border: none; font-weight: bold; cursor: pointer; margin-top: 15px; }
+    .admin-box { background: #2c3e50; color: white; border-radius: 12px; }
+    .admin-box h2, .admin-box h3, .admin-box label { color: white; }
     .delete-btn { background: #ff4d4d; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; }
     .error-box { background: #ffebee; color: #c62828; padding: 10px; border-radius: 8px; font-size: 12px; margin-top: 10px; border: 1px solid #ef9a9a; display: none; }
     .table-section { margin-top: 30px; border-top: 2px solid #eee; padding-top: 20px; }
-    table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 14px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 13px; }
     th { background: #f8f9fa; color: #666; text-align: left; padding: 10px; border-bottom: 2px solid #eee; }
+    .admin-box table th { background: #34495e; color: white; }
     td { padding: 10px; border-bottom: 1px solid #eee; color: #333; }
+    .admin-box table td { color: white; border-bottom: 1px solid #3e5871; }
+    .tabs { display: flex; gap: 5px; margin-bottom: 20px; border-bottom: 2px solid #eee; }
+    .tab { flex: 1; padding: 10px; text-align: center; cursor: pointer; font-weight: bold; color: #999; }
+    .tab.active { color: #0066cc; border-bottom: 2px solid #0066cc; }
   </style>
 </head>
 <body>
 
-<div class="version">v1.1.3</div>
+<div class="version">v1.1.6</div>
 <div class="lang-switcher"><button class="lang-btn" onclick="toggleLanguage()" id="langBtn">EN</button></div>
 
 <div id="loginPage" class="box">
   <h2 data-key="loginTitle">Giriş Yap</h2>
-  <label data-key="studentIdLabel">Öğrenci Numarası</label>
-  <input id="loginStudentId" type="text" placeholder="160411006">
+  <div class="tabs">
+    <div id="tabStudent" class="tab active" onclick="setLoginType('student')">Öğrenci</div>
+    <div id="tabAcademic" class="tab" onclick="setLoginType('academic')">Akademik</div>
+  </div>
+  <label id="idLabel">Öğrenci Numarası</label>
+  <input id="loginId" type="text" placeholder="ID">
   <label data-key="passLabel">Şifre</label>
   <input id="loginPass" type="password">
   <button class="main-btn" onclick="login()" data-key="signInBtn">Giriş Yap</button>
@@ -42,53 +53,48 @@
 
 <div id="registerPage" class="box hidden">
   <h2 data-key="regTitle">Kayıt Ol</h2>
-  <label data-key="studentIdLabel">Öğrenci Numarası</label>
-  <input id="regStudentId" type="text" placeholder="160411006">
-  <label data-key="nameLabel">Ad Soyad</label>
+  <div class="tabs">
+    <div id="regTabStudent" class="tab active" onclick="setRegType('student')">Öğrenci</div>
+    <div id="regTabAcademic" class="tab" onclick="setRegType('academic')">Akademik</div>
+  </div>
+  <label id="regIdLabel">Öğrenci Numarası</label>
+  <input id="regId" type="text" placeholder="ID">
   <input id="regFullName" type="text" placeholder="Ad Soyad">
-  <label data-key="passLabel">Şifre</label>
-  <input id="regPass" type="password">
+  <input id="regPass" type="password" placeholder="Şifre">
   <button class="main-btn" onclick="register()" data-key="signUpBtn">Kayıt Ol</button>
-  <div id="regError" class="error-box"></div>
   <div style="text-align:center; margin-top:15px;"><a onclick="switchPage('loginPage')" style="color:#0066cc; cursor:pointer; font-size:13px;" data-key="backBtn">Geri Dön</a></div>
+</div>
+
+<div id="adminPage" class="box admin-box hidden" style="max-width: 650px;">
+  <h2>Admin Paneli</h2>
+  <h3 id="adminWelcome">Hoş Geldiniz</h3>
+  <div class="table-section">
+    <h3>Tüm Lab Randevuları</h3>
+    <table id="adminTable">
+      <thead>
+        <tr>
+          <th>Ad Soyad</th>
+          <th>Tarih</th>
+          <th>Saat</th>
+          <th>İşlem</th>
+        </tr>
+      </thead>
+      <tbody id="adminTableBody"></tbody>
+    </table>
+  </div>
+  <button class="main-btn" style="background:#e74c3c; margin-top:20px;" onclick="logout()" data-key="logoutBtn">Çıkış Yap</button>
 </div>
 
 <div id="bookingPage" class="box hidden">
   <h2 id="welcomeMsg">Hoş Geldiniz</h2>
   <div style="display:flex; gap:10px;">
-    <div style="flex:1;">
-      <label data-key="dateLabel">Tarih</label>
-      <input id="date" type="date">
-    </div>
-    <div style="flex:1;">
-      <label data-key="timeLabel">Saat Aralığı</label>
-      <select id="timeSlot">
-        <option value="09:00-10:00">09:00 - 10:00</option>
-        <option value="10:00-11:00">10:00 - 11:00</option>
-        <option value="11:00-12:00">11:00 - 12:00</option>
-        <option value="12:00-13:00">12:00 - 13:00</option>
-        <option value="13:00-14:00">13:00 - 14:00</option>
-        <option value="14:00-15:00">14:00 - 15:00</option>
-        <option value="15:00-16:00">15:00 - 16:00</option>
-        <option value="16:00-17:00">16:00 - 17:00</option>
-      </select>
-    </div>
+    <div style="flex:1;"><label>Tarih</label><input id="date" type="date"></div>
+    <div style="flex:1;"><label>Saat</label><select id="timeSlot"><option value="09:00-10:00">09:00-10:00</option><option value="10:00-11:00">10:00-11:00</option><option value="11:00-12:00">11:00-12:00</option><option value="12:00-13:00">12:00-13:00</option><option value="13:00-14:00">13:00-14:00</option><option value="14:00-15:00">14:00-15:00</option><option value="15:00-16:00">15:00-16:00</option><option value="16:00-17:00">16:00-17:00</option></select></div>
   </div>
   <button class="main-btn" onclick="bookAppointment()" data-key="bookBtn">Randevu Al</button>
-  <div id="bookingError" class="error-box"></div>
-
   <div class="table-section">
-    <h3 style="font-size:16px; color:#444;" data-key="myBookingsTitle">Randevularım</h3>
-    <table>
-      <thead>
-        <tr>
-          <th data-key="thDate">Tarih</th>
-          <th data-key="thTime">Saat</th>
-          <th data-key="thAction">İşlem</th>
-        </tr>
-      </thead>
-      <tbody id="appointmentTableBody"></tbody>
-    </table>
+    <h3>Randevularım</h3>
+    <table><thead><tr><th>Tarih</th><th>Saat</th><th>İşlem</th></tr></thead><tbody id="userTableBody"></tbody></table>
   </div>
   <button class="main-btn" style="background:#555; margin-top:30px;" onclick="logout()" data-key="logoutBtn">Çıkış Yap</button>
 </div>
@@ -105,149 +111,122 @@
 
   let currentUser = null;
   let currentLang = localStorage.getItem('lang') || 'tr';
+  let loginType = 'student';
+  let regType = 'student';
 
-  const translations = {
-    tr: {
-      loginTitle: "Giriş Yap", studentIdLabel: "Öğrenci Numarası", passLabel: "Şifre", signInBtn: "Giriş Yap",
-      createAccLink: "Yeni Hesap Oluştur", regTitle: "Kayıt Ol", nameLabel: "Ad Soyad", signUpBtn: "Kayıt Ol",
-      backBtn: "Geri Dön", dateLabel: "Tarih Seçin", timeLabel: "Saat Aralığı", bookBtn: "Randevu Al", 
-      logoutBtn: "Çıkış Yap", verifyMsg: "Lütfen mailinizi onaylayın!",
-      myBookingsTitle: "Randevularım", thDate: "Tarih", thTime: "Saat", thAction: "İşlem",
-      conflictError: "Bu saat dilimi dolu!", pastDateError: "Geçmiş bir tarihe randevu alamazsınız.",
-      weekendError: "Hafta sonu laboratuvar kapalıdır.", deleteConfirm: "Silmek istediğinize emin misiniz?"
-    },
-    en: {
-      loginTitle: "Login", studentIdLabel: "Student ID", passLabel: "Password", signInBtn: "Sign In",
-      createAccLink: "Create New Account", regTitle: "Register", nameLabel: "Full Name", signUpBtn: "Sign Up",
-      backBtn: "Back", dateLabel: "Select Date", timeLabel: "Time Slot", bookBtn: "Book Now", 
-      logoutBtn: "Logout", verifyMsg: "Please verify your email!",
-      myBookingsTitle: "My Appointments", thDate: "Date", thTime: "Time", thAction: "Action",
-      conflictError: "Slot taken!", pastDateError: "Cannot book a past date.",
-      weekendError: "Laboratory is closed on weekends.", deleteConfirm: "Are you sure?"
-    }
-  };
-
-  function updateUI() {
-    document.querySelectorAll('[data-key]').forEach(el => {
-      el.innerText = translations[currentLang][el.getAttribute('data-key')];
-    });
-    document.getElementById('langBtn').innerText = currentLang === 'tr' ? 'EN' : 'TR';
+  function setLoginType(t) { 
+    loginType = t; 
+    document.getElementById('tabStudent').classList.toggle('active', t==='student');
+    document.getElementById('tabAcademic').classList.toggle('active', t==='academic');
+    document.getElementById('idLabel').innerText = t==='student' ? 'Öğrenci Numarası' : 'Personel ID';
   }
 
-  function toggleLanguage() {
-    currentLang = currentLang === 'tr' ? 'en' : 'tr';
-    localStorage.setItem('lang', currentLang);
-    updateUI();
-    if(currentUser) loadAppointments();
-  }
-
-  async function bookAppointment() {
-    const dateInput = document.getElementById("date").value;
-    const timeVal = document.getElementById("timeSlot").value;
-    const errBox = document.getElementById("bookingError");
-    errBox.style.display = 'none';
-
-    if(!dateInput) return;
-
-    const selectedDate = new Date(dateInput);
-    const today = new Date();
-    today.setHours(0,0,0,0);
-
-    // 1. Geçmiş tarih kontrolü
-    if(selectedDate < today) {
-      errBox.innerText = translations[currentLang].pastDateError;
-      errBox.style.display = 'block';
-      return;
-    }
-
-    // 2. Hafta sonu kontrolü (0=Pazar, 6=Cumartesi)
-    const day = selectedDate.getDay();
-    if(day === 0 || day === 6) {
-      errBox.innerText = translations[currentLang].weekendError;
-      errBox.style.display = 'block';
-      return;
-    }
-
-    try {
-      const existing = await databases.listDocuments(DATABASE_ID, COLLECTION_ID, [
-        Query.equal('date', dateInput),
-        Query.equal('time', timeVal)
-      ]);
-
-      if (existing.documents.length > 0) {
-        errBox.innerText = translations[currentLang].conflictError;
-        errBox.style.display = 'block';
-        return;
-      }
-
-      await databases.createDocument(DATABASE_ID, COLLECTION_ID, ID.unique(), {
-        name: currentUser.name, date: dateInput, time: timeVal
-      });
-      alert(currentLang === 'tr' ? "Randevu alındı!" : "Booked!");
-      loadAppointments();
-    } catch (e) { alert(e.message); }
-  }
-
-  async function deleteAppointment(docId) {
-    if(!confirm(translations[currentLang].deleteConfirm)) return;
-    try {
-      await databases.deleteDocument(DATABASE_ID, COLLECTION_ID, docId);
-      loadAppointments();
-    } catch (e) { alert(e.message); }
-  }
-
-  async function loadAppointments() {
-    try {
-      const response = await databases.listDocuments(DATABASE_ID, COLLECTION_ID, [
-        Query.equal('name', currentUser.name),
-        Query.orderDesc('$createdAt')
-      ]);
-      const tbody = document.getElementById("appointmentTableBody");
-      tbody.innerHTML = "";
-      response.documents.forEach(doc => {
-        tbody.innerHTML += `<tr><td>${doc.date}</td><td>${doc.time}</td>
-          <td><button class="delete-btn" onclick="deleteAppointment('${doc.$id}')">${currentLang === 'tr' ? 'Sil' : 'Delete'}</button></td></tr>`;
-      });
-    } catch (e) { console.error(e); }
+  function setRegType(t) { 
+    regType = t; 
+    document.getElementById('regTabStudent').classList.toggle('active', t==='student');
+    document.getElementById('regTabAcademic').classList.toggle('active', t==='academic');
+    document.getElementById('regIdLabel').innerText = t==='student' ? 'Öğrenci Numarası' : 'Personel ID';
   }
 
   async function login() {
-    const email = document.getElementById("loginStudentId").value.trim() + "@ogr.ikc.edu.tr";
-    const pass = document.getElementById("loginPass").value;
+    const domain = loginType === 'student' ? "@ogr.ikc.edu.tr" : "@ikc.edu.tr";
+    const email = document.getElementById("loginId").value.trim() + domain;
     try {
-      await account.createEmailSession(email, pass);
+      await account.createEmailSession(email, document.getElementById("loginPass").value);
       currentUser = await account.get();
-      if (!currentUser.emailVerification) {
-        alert(translations[currentLang].verifyMsg);
-        await account.deleteSession('current');
-        return;
+      if (!currentUser.emailVerification) { alert("Lütfen mailinizi onaylayın!"); await account.deleteSession('current'); return; }
+      
+      // ADMIN AYRIMI BURADA YAPILIYOR
+      if (currentUser.email.endsWith("@ikc.edu.tr")) {
+        switchPage('adminPage');
+        document.getElementById("adminWelcome").innerText = "Merhaba, " + currentUser.name;
+        loadAdminTable();
+      } else {
+        switchPage('bookingPage');
+        document.getElementById("welcomeMsg").innerText = "Merhaba, " + currentUser.name;
+        loadUserTable();
       }
-      switchPage('bookingPage');
-      document.getElementById("welcomeMsg").innerText = (currentLang === 'tr' ? "Merhaba, " : "Welcome, ") + currentUser.name;
-      loadAppointments();
-    } catch (e) { document.getElementById("loginError").style.display='block'; }
+    } catch (e) { alert("Giriş başarısız: " + e.message); }
   }
 
-  async function register() {
-    const sid = document.getElementById("regStudentId").value.trim();
-    const name = document.getElementById("regFullName").value.trim();
-    const pass = document.getElementById("regPass").value;
+  async function loadAdminTable() {
     try {
-      await account.create(ID.unique(), sid + "@ogr.ikc.edu.tr", pass, name);
-      await account.createEmailSession(sid + "@ogr.ikc.edu.tr", pass);
-      await account.createVerification(REDIRECT_URL);
-      alert("Mail gönderildi.");
-      await account.deleteSession('current');
-      switchPage('loginPage');
+      const res = await databases.listDocuments(DATABASE_ID, COLLECTION_ID, [Query.orderDesc('$createdAt')]);
+      const tbody = document.getElementById("adminTableBody");
+      tbody.innerHTML = "";
+      res.documents.forEach(doc => {
+        tbody.innerHTML += `<tr><td>${doc.name}</td><td>${doc.date}</td><td>${doc.time}</td><td><button class="delete-btn" onclick="deleteDoc('${doc.$id}', true)">İptal Et</button></td></tr>`;
+      });
+    } catch (e) { console.error("Admin tablosu yüklenemedi:", e); }
+  }
+
+  async function loadUserTable() {
+    try {
+      const res = await databases.listDocuments(DATABASE_ID, COLLECTION_ID, [Query.equal('name', currentUser.name), Query.orderDesc('$createdAt')]);
+      const tbody = document.getElementById("userTableBody");
+      tbody.innerHTML = "";
+      res.documents.forEach(doc => {
+        tbody.innerHTML += `<tr><td>${doc.date}</td><td>${doc.time}</td><td><button class="delete-btn" onclick="deleteDoc('${doc.$id}', false)">Sil</button></td></tr>`;
+      });
+    } catch (e) { console.error("Kullanıcı tablosu yüklenemedi:", e); }
+  }
+
+  async function deleteDoc(id, isAdmin) {
+    if(!confirm("Emin misiniz?")) return;
+    try {
+      await databases.deleteDocument(DATABASE_ID, COLLECTION_ID, id);
+      isAdmin ? loadAdminTable() : loadUserTable();
+    } catch (e) { alert("Silme hatası: " + e.message); }
+  }
+
+  async function bookAppointment() {
+    const d = document.getElementById("date").value;
+    const t = document.getElementById("timeSlot").value;
+    if(!d) return;
+    
+    // Geçmiş zaman kontrolü
+    const now = new Date();
+    const sel = new Date(d);
+    sel.setHours(parseInt(t.split(":")[0]));
+    if(sel < now) { alert("Geçmiş saate randevu alınamaz!"); return; }
+
+    try {
+      const res = await databases.listDocuments(DATABASE_ID, COLLECTION_ID, [Query.equal('date', d), Query.equal('time', t)]);
+      if(res.documents.length > 0) { alert("Bu saat dolu!"); return; }
+      await databases.createDocument(DATABASE_ID, COLLECTION_ID, ID.unique(), { name: currentUser.name, date: d, time: t });
+      alert("Randevu alındı!");
+      loadUserTable();
     } catch (e) { alert(e.message); }
   }
 
-  function switchPage(id) {
-    document.querySelectorAll('.box').forEach(b => b.classList.add('hidden'));
-    document.getElementById(id).classList.remove('hidden');
+  async function register() {
+    const domain = regType === 'student' ? "@ogr.ikc.edu.tr" : "@ikc.edu.tr";
+    const email = document.getElementById("regId").value.trim() + domain;
+    try {
+      await account.create(ID.unique(), email, document.getElementById("regPass").value, document.getElementById("regFullName").value);
+      await account.createEmailSession(email, document.getElementById("regPass").value);
+      await account.createVerification(REDIRECT_URL);
+      alert("Doğrulama maili gönderildi!");
+      await account.deleteSession('current');
+      switchPage('loginPage');
+    } catch (e) { alert("Kayıt hatası: " + e.message); }
   }
+
+  function switchPage(id) { document.querySelectorAll('.box').forEach(b => b.classList.add('hidden')); document.getElementById(id).classList.remove('hidden'); }
   async function logout() { await account.deleteSession('current'); location.reload(); }
-  window.onload = () => updateUI();
+  function toggleLanguage() { currentLang = currentLang === 'tr' ? 'en' : 'tr'; localStorage.setItem('lang', currentLang); location.reload(); }
+
+  // Mail onayından dönüşü yakalama
+  window.onload = async () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('userId') && urlParams.get('secret')) {
+      try {
+        await account.updateVerification(urlParams.get('userId'), urlParams.get('secret'));
+        alert("E-posta onaylandı! Giriş yapabilirsiniz.");
+        window.location.href = REDIRECT_URL;
+      } catch (e) { alert("Onay hatası: " + e.message); }
+    }
+  }
 </script>
 </body>
 </html>
