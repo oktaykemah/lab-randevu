@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>IKC Lab Booking - v1.6.0</title>
+  <title>IKC Lab Booking - v1.5.0</title>
   <script src="https://cdn.jsdelivr.net/npm/appwrite@13.0.1"></script>
   <style>
     :root { --primary: #0066cc; --admin: #2c3e50; --danger: #e74c3c; --success: #27ae60; --occupied-other: #fdeaea; --occupied-me: #e3f2fd; --holiday: #fff3e0; }
@@ -16,14 +16,20 @@
     .grid-options { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-top: 10px; background: #f9f9f9; padding: 15px; border-radius: 8px; }
     .opt-item { display: flex; align-items: center; font-size: 13px; cursor: pointer; padding: 5px; background: white; border: 1px solid #eee; border-radius: 4px; }
     .opt-item input { width: auto; margin: 0 8px 0 0; }
+    .calendar-container { overflow-x: auto; margin-top: 20px; border: 1px solid #ddd; border-radius: 8px; }
+    .cal-table { width: 100%; border-collapse: collapse; background: white; min-width: 600px; }
+    .cal-table th, .cal-table td { border: 1px solid #eee; padding: 10px; text-align: center; font-size: 11px; }
+    .cal-table th { background: #f8f9fa; color: #666; }
+    .slot-me { background: var(--occupied-me); color: var(--primary); font-weight: bold; }
+    .slot-other { background: var(--occupied-other); color: var(--danger); font-weight: bold; }
+    .slot-free { color: var(--success); font-weight: bold; }
+    .holiday-msg { background: var(--holiday); color: #e65100; padding: 15px; border-radius: 8px; text-align: center; font-weight: bold; margin-top: 10px; border: 1px solid #ffe0b2; }
     .main-btn { background: var(--primary); color: white; border: none; font-weight: bold; cursor: pointer; transition: 0.3s; margin-top: 20px; }
     .admin-mode { border-top: 8px solid var(--admin); }
     .delete-btn { background: var(--danger); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; width: auto; font-size: 12px; }
-    .ban-btn { background: #000; color: #fff; }
-    .unban-btn { background: #f39c12; color: #fff; }
+    .delete-btn:disabled { background: #ccc; cursor: not-allowed; }
     table.res-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
     .res-table th, .res-table td { text-align: left; padding: 12px; border-bottom: 1px solid #eee; font-size: 13px; }
-    .status-ban { color: var(--danger); font-weight: bold; }
   </style>
 </head>
 <body>
@@ -31,7 +37,6 @@
 <div id="app" class="box">
     <div id="loginPage">
         <h2>IKC Lab Randevu</h2>
-        <div id="banAlert" class="hidden" style="color: red; font-weight: bold; margin-bottom: 15px;">⚠️ Hesabınız kural ihlali nedeniyle askıya alınmıştır.</div>
         <select id="loginDomain"><option value="@ogr.ikc.edu.tr">Öğrenci</option><option value="@ikc.edu.tr">Akademik</option></select>
         <input id="loginId" type="text" placeholder="ID">
         <input id="loginPass" type="password" placeholder="Şifre">
@@ -50,10 +55,10 @@
     <div id="bookingPage" class="hidden">
         <h2 id="userGreet">Hoş Geldiniz</h2>
         <div style="background: #eef6ff; padding: 15px; border-radius: 10px; margin-bottom: 20px;">
-            <label>Laboratuvar ve Tarih Seçimi</label>
+            <label>1. Laboratuvar ve Tarih Seçimi</label>
             <div style="display:flex; gap:10px;">
                 <select id="labSelect" onchange="refreshView()" style="flex:2;">
-                    <option value="">Seçiniz...</option>
+                    <option value="">Laboratuvar Seçiniz...</option>
                     <option value="Malzeme Karakterizasyon Lab.">Malzeme Karakterizasyon Lab.</option>
                     <option value="Numune Hazırlama Lab.">Numune Hazırlama Lab.</option>
                     <option value="Üretim Lab.">Üretim Lab.</option>
@@ -61,28 +66,42 @@
                 <input id="resDate" type="date" onchange="refreshView()" style="flex:1;">
             </div>
         </div>
+
         <div id="statusSection" class="hidden">
-            <div id="holidayNotice" class="hidden" style="padding:15px; background:#fff3e0; color:#e65100; border-radius:8px; margin-bottom:10px;"></div>
+            <div id="holidayNotice" class="holiday-msg hidden"></div>
             <div id="calendarContent">
-                <div style="overflow-x: auto;"><table id="calTable" style="width:100%; border-collapse:collapse; font-size:11px;"></table></div>
+                <h3>Günlük Doluluk Çizelgesi</h3>
+                <div class="calendar-container"><table class="cal-table"><thead id="calHead"></thead><tbody id="calBody"></tbody></table></div>
+                <label style="margin-top:25px;">2. Cihaz ve Saat Seçimi</label>
                 <div id="equipmentGrid" class="grid-options"></div>
                 <div id="timeGrid" class="grid-options"></div>
                 <button class="main-btn" onclick="saveBooking()">Randevuyu Kaydet</button>
             </div>
         </div>
-        <div class="table-section"><h3>Randevularım</h3><table class="res-table"><tbody id="userBody"></tbody></table></div>
+        
+        <div class="table-section">
+            <h3>Randevularım</h3>
+            <p style="font-size:11px; color:#888;">* Randevular başlangıç tarihinden en az 1 gün önce iptal edilebilir.</p>
+            <table class="res-table"><thead><tr><th>Lab / Cihaz</th><th>Zaman</th><th>İşlem</th></tr></thead><tbody id="userBody"></tbody></table>
+        </div>
         <button onclick="logout()" style="background:#666; color:white; margin-top:20px;">Çıkış Yap</button>
     </div>
 
     <div id="adminPage" class="hidden admin-mode">
         <h2>Admin Paneli</h2>
-        <div style="background: #f0f4f8; padding: 15px; border-radius: 10px; margin-bottom: 20px;">
-            <h3>Öğrenci Yönetimi (Kara Liste)</h3>
-            <input id="banSearchId" type="text" placeholder="Öğrenci No (Örn: 160411006)" style="width:70%;">
-            <button class="main-btn ban-btn" onclick="banUser()" style="width:28%; margin-top:0;">Engelle</button>
-            <div id="blackListDisplay" style="margin-top:15px; font-size:12px;"></div>
+        <div style="background: #f0f4f8; padding: 20px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #d1d9e0;">
+            <h3>İzleme Tablosu</h3>
+            <div style="display:flex; gap:10px;">
+                <select id="adminViewLab" onchange="loadAdminCalendar()" style="flex:2;">
+                    <option value="Malzeme Karakterizasyon Lab.">Malzeme Karakterizasyon Lab.</option>
+                    <option value="Numune Hazırlama Lab.">Numune Hazırlama Lab.</option>
+                    <option value="Üretim Lab.">Üretim Lab.</option>
+                </select>
+                <input id="adminViewDate" type="date" onchange="loadAdminCalendar()" style="flex:1;">
+            </div>
+            <div class="calendar-container"><table class="cal-table"><thead id="adminCalHead"></thead><tbody id="adminCalBody"></tbody></table></div>
         </div>
-        <h3>Tüm Randevular</h3>
+        <h3>Tüm Randevular (Kısıtlamasız Silebilirsiniz)</h3>
         <table class="res-table"><thead><tr><th>Öğrenci</th><th>Cihaz</th><th>Zaman</th><th>İşlem</th></tr></thead><tbody id="adminBody"></tbody></table>
         <button onclick="logout()" style="background:#666; color:white; margin-top:20px;">Çıkış Yap</button>
     </div>
@@ -97,112 +116,119 @@ const databases = new Databases(client);
 const DB_ID = '6981c42a00202c6cdf0e';
 const COLL_APP = 'appointments';
 const COLL_EQUIP = 'equipments';
-const COLL_BAN = 'blacklist';
 const REDIRECT_URL = "https://oktaykemah.github.io/lab-randevu/";
 
 const hours = ["09:00-10:00", "10:00-11:00", "11:00-12:00", "12:00-13:00", "13:00-14:00", "14:00-15:00", "15:00-16:00", "16:00-17:00"];
 let currentUser = null;
 
-// KARA LİSTE KONTROLÜ
-async function isBanned(email) {
-    try {
-        const res = await databases.listDocuments(DB_ID, COLL_BAN, [Query.equal('email', email)]);
-        return res.total > 0;
-    } catch (e) { return false; }
+// TÜRKİYE RESMİ TATİL KONTROLÜ
+function getHoliday(dateStr) {
+    const date = new Date(dateStr);
+    const day = date.getDay();
+    const monthDay = (date.getMonth() + 1) + "-" + date.getDate();
+    if (day === 0) return "Pazar (Kapalı)";
+    if (day === 6) return "Cumartesi (Kapalı)";
+    const holidays = {"1-1":"Yılbaşı","4-23":"23 Nisan","5-1":"1 Mayıs","5-19":"19 Mayıs","7-15":"15 Temmuz","8-30":"30 Ağustos","10-29":"29 Ekim"};
+    const religious2026 = {"3-19":"Bayram Arifesi","3-20":"Ramazan Bayramı","3-21":"Ramazan Bayramı","3-22":"Ramazan Bayramı","5-26":"Kurban Arifesi","5-27":"Kurban Bayramı","5-28":"Kurban Bayramı","5-29":"Kurban Bayramı","5-30":"Kurban Bayramı"};
+    return holidays[monthDay] || religious2026[monthDay] || null;
 }
 
-async function handleLogin() {
-    const domain = document.getElementById("loginDomain").value;
-    const email = document.getElementById("loginId").value.trim() + domain;
-    
-    if (await isBanned(email)) {
-        document.getElementById("banAlert").classList.remove("hidden");
-        return;
+// ZAMAN KISITLAMA KONTROLÜ
+function canProcess(targetDateStr, type) {
+    const target = new Date(targetDateStr);
+    target.setHours(0,0,0,0);
+    const today = new Date();
+    today.setHours(0,0,0,0);
+
+    if (type === 'booking') {
+        // Bugün veya geçmişe randevu alınamaz
+        return target > today;
     }
-
-    try {
-        await account.createEmailSession(email, document.getElementById("loginPass").value);
-        location.reload();
-    } catch (e) { alert("Hata: " + e.message); }
+    if (type === 'cancel') {
+        // Hedef tarihten bir önceki günün sonuna kadar iptal edilebilir.
+        // target - 1 day >= today
+        const limit = new Date(target);
+        limit.setDate(limit.getDate() - 1);
+        return today < limit;
+    }
+    return true;
 }
 
-// ADMIN: KULLANICI ENGELLEME
-async function banUser() {
-    const id = document.getElementById("banSearchId").value.trim();
-    if(!id) return;
-    const email = id + "@ogr.ikc.edu.tr";
-    try {
-        await databases.createDocument(DB_ID, COLL_BAN, ID.unique(), { email: email, reason: "3 kez gelmedi / Kural ihlali" });
-        alert(id + " engellendi.");
-        loadBlacklist();
-    } catch (e) { alert("Zaten engelli veya hata oluştu."); }
-}
-
-async function unbanUser(docId) {
-    await databases.deleteDocument(DB_ID, COLL_BAN, docId);
-    loadBlacklist();
-}
-
-async function loadBlacklist() {
-    const res = await databases.listDocuments(DB_ID, COLL_BAN);
-    document.getElementById("blackListDisplay").innerHTML = "<b>Engelli Listesi:</b><br>" + 
-        res.documents.map(d => `${d.email} <a href="#" onclick="unbanUser('${d.$id}')" style="color:blue; margin-left:10px;">Kaldır</a>`).join('<br>');
-}
-
-// GENEL FONKSİYONLAR (Önceki sürümlerden stabilize edilmiş)
 async function refreshView() {
     const lab = document.getElementById("labSelect").value;
-    const date = document.getElementById("resDate").value;
-    if(!lab || !date) return;
+    const dateStr = document.getElementById("resDate").value;
+    if(!lab || !dateStr) return;
+
+    const notice = document.getElementById("holidayNotice");
+    const content = document.getElementById("calendarContent");
     document.getElementById("statusSection").classList.remove("hidden");
+
+    // 1. Tatil Kontrolü
+    const holiday = getHoliday(dateStr);
+    if(holiday) {
+        notice.innerText = `⚠️ ${holiday} nedeniyle laboratuvar kapalıdır.`;
+        notice.classList.remove("hidden"); content.classList.add("hidden"); return;
+    }
+
+    // 2. Aynı Gün Kısıtlaması Kontrolü
+    if(!canProcess(dateStr, 'booking')) {
+        notice.innerText = `⚠️ Aynı gün için randevu alınamaz. Lütfen en az bir gün sonrasını seçin.`;
+        notice.classList.remove("hidden"); content.classList.add("hidden"); return;
+    }
+
+    notice.classList.add("hidden"); content.classList.remove("hidden");
     const equips = await databases.listDocuments(DB_ID, COLL_EQUIP, [Query.equal('lab', lab)]);
-    const apps = await databases.listDocuments(DB_ID, COLL_APP, [Query.equal('lab', lab), Query.equal('date', date)]);
-    
     document.getElementById("equipmentGrid").innerHTML = equips.documents.map(d => `<label class="opt-item"><input type="checkbox" name="equip" value="${d.name}">${d.name}</label>`).join('');
     document.getElementById("timeGrid").innerHTML = hours.map(h => `<label class="opt-item"><input type="checkbox" name="timeSlot" value="${h}">${h}</label>`).join('');
-    
-    let tableHtml = `<tr><th style="border:1px solid #eee; padding:5px;">Saat</th>${equips.documents.map(d => `<th style="border:1px solid #eee; padding:5px;">${d.name}</th>`).join('')}</tr>`;
-    hours.forEach(h => {
-        tableHtml += `<tr><td style="border:1px solid #eee; padding:5px;">${h}</td>`;
-        equips.documents.forEach(d => {
-            const match = apps.documents.find(a => a.time.includes(h) && a.equipment.includes(d.name));
-            tableHtml += match ? `<td style="border:1px solid #eee; padding:5px; background:#fdeaea; color:red;">DOLU</td>` : `<td style="border:1px solid #eee; padding:5px; color:green;">BOŞ</td>`;
-        });
-        tableHtml += `</tr>`;
-    });
-    document.getElementById("calTable").innerHTML = tableHtml;
+    await renderCalendar(lab, dateStr, "calHead", "calBody", false);
 }
 
-async function checkSession() {
-    try {
-        currentUser = await account.get();
-        if (await isBanned(currentUser.email)) { await account.deleteSession('current'); location.reload(); return; }
-        document.getElementById("loginPage").classList.add("hidden");
-        if(currentUser.email.endsWith("@ikc.edu.tr")) { 
-            document.getElementById("adminPage").classList.remove("hidden"); 
-            loadAdminData(); loadBlacklist();
-        } else { 
-            document.getElementById("bookingPage").classList.remove("hidden"); 
-            document.getElementById("userGreet").innerText = "Merhaba, " + currentUser.name; 
-            loadUserData();
-        }
-    } catch (e) {}
+async function renderCalendar(lab, date, headId, bodyId, isAdmin) {
+    const equips = await databases.listDocuments(DB_ID, COLL_EQUIP, [Query.equal('lab', lab)]);
+    const apps = await databases.listDocuments(DB_ID, COLL_APP, [Query.equal('lab', lab), Query.equal('date', date)]);
+    document.getElementById(headId).innerHTML = `<tr><th>Saat</th>${equips.documents.map(d => `<th>${d.name}</th>`).join('')}</tr>`;
+    document.getElementById(bodyId).innerHTML = hours.map(h => {
+        const row = equips.documents.map(d => {
+            const match = apps.documents.find(a => a.time.includes(h) && a.equipment.includes(d.name));
+            if (match) {
+                if (isAdmin) return `<td class="slot-occupied">${match.name}</td>`;
+                return match.name === currentUser.name ? `<td class="slot-me">BEN</td>` : `<td class="slot-other">DOLU</td>`;
+            }
+            return `<td class="slot-free">BOŞ</td>`;
+        }).join('');
+        return `<tr><td><b>${h}</b></td>${row}</tr>`;
+    }).join('');
 }
 
 async function saveBooking() {
     const lab = document.getElementById("labSelect").value;
     const date = document.getElementById("resDate").value;
-    const selectedEquips = Array.from(document.querySelectorAll('input[name="equip"]:checked')).map(e => e.value);
-    const selectedTimes = Array.from(document.querySelectorAll('input[name="timeSlot"]:checked')).map(e => e.value);
+    if(!canProcess(date, 'booking')) { alert("Hata: Bugün için randevu alınamaz!"); return; }
     
+    const equips = Array.from(document.querySelectorAll('input[name="equip"]:checked')).map(e => e.value);
+    const times = Array.from(document.querySelectorAll('input[name="timeSlot"]:checked')).map(e => e.value);
+    if(equips.length === 0 || times.length === 0) { alert("Eksik seçim!"); return; }
+
     const res = await databases.listDocuments(DB_ID, COLL_APP, [Query.equal('date', date), Query.equal('lab', lab)]);
-    for(let dev of selectedEquips) {
-        for(let t of selectedTimes) {
-            if(res.documents.find(doc => doc.time.includes(t) && doc.equipment.includes(dev))) { alert("Hata: " + dev + " dolu!"); return; }
+    for(let dev of equips) {
+        for(let t of times) {
+            if(res.documents.find(doc => doc.time.includes(t) && doc.equipment.includes(dev))) { alert("Dolu!"); return; }
         }
     }
-    await databases.createDocument(DB_ID, COLL_APP, ID.unique(), { name: currentUser.name, lab, date, equipment: selectedEquips.join(', '), time: selectedTimes.join(', ') });
+    await databases.createDocument(DB_ID, COLL_APP, ID.unique(), { name: currentUser.name, lab, date, equipment: equips.join(', '), time: times.join(', ') });
     alert("Onaylandı!"); refreshView(); loadUserData();
+}
+
+async function loadUserData() {
+    const res = await databases.listDocuments(DB_ID, COLL_APP, [Query.equal('name', currentUser.name), Query.orderDesc('$createdAt')]);
+    document.getElementById("userBody").innerHTML = res.documents.map(doc => {
+        const cancelPossible = canProcess(doc.date, 'cancel');
+        return `<tr>
+            <td><b>${doc.lab}</b><br>${doc.equipment}</td>
+            <td>${doc.date}<br>${doc.time}</td>
+            <td><button class="delete-btn" ${cancelPossible ? '' : 'disabled'} onclick="deleteRes('${doc.$id}', false)">${cancelPossible ? 'İptal' : 'Süre Doldu'}</button></td>
+        </tr>`;
+    }).join('');
 }
 
 async function loadAdminData() {
@@ -210,16 +236,40 @@ async function loadAdminData() {
     document.getElementById("adminBody").innerHTML = res.documents.map(doc => `<tr><td>${doc.name}</td><td>${doc.equipment}</td><td>${doc.date} / ${doc.time}</td><td><button class="delete-btn" onclick="deleteRes('${doc.$id}', true)">Sil</button></td></tr>`).join('');
 }
 
-async function loadUserData() {
-    const res = await databases.listDocuments(DB_ID, COLL_APP, [Query.equal('name', currentUser.name), Query.orderDesc('$createdAt')]);
-    document.getElementById("userBody").innerHTML = res.documents.map(doc => `<tr><td><b>${doc.lab}</b><br>${doc.equipment}</td><td>${doc.date} ${doc.time}</td><td><button class="delete-btn" onclick="deleteRes('${doc.$id}', false)">İptal</button></td></tr>`).join('');
+async function deleteRes(id, isAdmin) {
+    if(!confirm("Bu randevuyu silmek istediğinize emin misiniz?")) return;
+    await databases.deleteDocument(DB_ID, COLL_APP, id);
+    isAdmin ? loadAdminData() : loadUserData(); refreshView();
 }
 
-async function deleteRes(id, isAdmin) { if(!confirm("Emin misiniz?")) return; await databases.deleteDocument(DB_ID, COLL_APP, id); isAdmin ? loadAdminData() : loadUserData(); refreshView(); }
-async function handleRegister() { const email = document.getElementById("regId").value.trim() + document.getElementById("regDomain").value; try { await account.create(ID.unique(), email, document.getElementById("regPass").value, document.getElementById("regFullName").value); await account.createEmailSession(email, document.getElementById("regPass").value); await account.createVerification(REDIRECT_URL); alert("Onay maili gönderildi."); await account.deleteSession('current'); switchPage('loginPage'); } catch (e) { alert(e.message); } }
-function switchPage(id) { document.querySelectorAll('.box > div').forEach(d => d.classList.add('hidden')); document.getElementById(id).classList.remove('hidden'); }
+async function checkSession() {
+    try {
+        currentUser = await account.get();
+        if(!currentUser.emailVerification) { await account.deleteSession('current'); return; }
+        document.getElementById("loginPage").classList.add("hidden");
+        if(currentUser.email.endsWith("@ikc.edu.tr")) { 
+            document.getElementById("adminPage").classList.remove("hidden"); 
+            document.getElementById("adminViewDate").valueAsDate = new Date();
+            loadAdminCalendar(); loadAdminData(); 
+        } else { 
+            document.getElementById("bookingPage").classList.remove("hidden"); 
+            document.getElementById("userGreet").innerText = "Merhaba, " + currentUser.name; loadUserData(); 
+        }
+    } catch (e) {}
+}
+
+async function loadAdminCalendar() { const lab = document.getElementById("adminViewLab").value; const date = document.getElementById("adminViewDate").value; await renderCalendar(lab, date, "adminCalHead", "adminCalBody", true); }
+async function handleLogin() { const email = document.getElementById("loginId").value.trim() + document.getElementById("loginDomain").value; try { await account.createEmailSession(email, document.getElementById("loginPass").value); location.reload(); } catch (e) { alert(e.message); } }
+async function handleRegister() { const email = document.getElementById("regId").value.trim() + document.getElementById("regDomain").value; try { await account.create(ID.unique(), email, document.getElementById("regPass").value, document.getElementById("regFullName").value); await account.createEmailSession(email, document.getElementById("regPass").value); await account.createVerification(REDIRECT_URL); alert("Mail gönderildi."); await account.deleteSession('current'); switchPage('loginPage'); } catch (e) { alert(e.message); } }
+async function addEquipmentToDB() { const lab = document.getElementById("adminLabSelect").value; const name = document.getElementById("newEquipName").value.trim(); if(name) { await databases.createDocument(DB_ID, COLL_EQUIP, ID.unique(), { name, lab }); alert("Eklendi!"); document.getElementById("newEquipName").value = ""; loadAdminData(); loadAdminCalendar(); } }
+function switchPage(id) { document.getElementById("loginPage").classList.add("hidden"); document.getElementById("registerPage").classList.add("hidden"); document.getElementById(id).classList.remove("hidden"); }
 async function logout() { await account.deleteSession('current'); location.reload(); }
-window.onload = checkSession;
+
+window.onload = async () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('userId')) { try { await account.updateVerification(urlParams.get('userId'), urlParams.get('secret')); alert("Onay Başarılı!"); window.location.href = REDIRECT_URL; } catch(e){ alert("Onay hatası."); } }
+    checkSession();
+};
 </script>
 </body>
 </html>
