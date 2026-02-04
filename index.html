@@ -3,19 +3,22 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>IKC Lab Booking - v1.1.1</title>
+  <title>IKC Lab Booking - v1.1.2</title>
   <script src="https://cdn.jsdelivr.net/npm/appwrite@13.0.1"></script>
   <style>
     .version { position: absolute; top: 10px; left: 10px; font-size: 12px; color: #999; font-weight: bold; }
     .lang-switcher { position: absolute; top: 10px; right: 10px; }
     .lang-btn { background: #fff; border: 2px solid #0066cc; color: #0066cc; padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: bold; }
     body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }
-    .box { background: #fff; padding: 30px; width: 100%; max-width: 450px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); position: relative; }
+    .box { background: #fff; padding: 30px; width: 100%; max-width: 500px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); position: relative; }
     .hidden { display: none; }
     h2 { text-align: center; color: #333; margin-bottom: 20px; }
     label { font-size: 13px; color: #666; font-weight: bold; display: block; margin-top: 10px; }
-    input, button { width: 100%; padding: 12px; margin-top: 8px; border-radius: 8px; border: 1px solid #ddd; box-sizing: border-box; }
+    input, select, button { width: 100%; padding: 12px; margin-top: 8px; border-radius: 8px; border: 1px solid #ddd; box-sizing: border-box; font-size: 14px; }
     .main-btn { background: #0066cc; color: white; border: none; font-weight: bold; cursor: pointer; margin-top: 15px; }
+    .main-btn:hover { background: #0052a3; }
+    .delete-btn { background: #ff4d4d; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; }
+    .delete-btn:hover { background: #cc0000; }
     .error-box { background: #ffebee; color: #c62828; padding: 10px; border-radius: 8px; font-size: 12px; margin-top: 10px; border: 1px solid #ef9a9a; display: none; }
     .table-section { margin-top: 30px; border-top: 2px solid #eee; padding-top: 20px; }
     table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 14px; }
@@ -25,13 +28,8 @@
 </head>
 <body>
 
-<div class="version">v1.1.1</div>
+<div class="version">v1.1.2</div>
 <div class="lang-switcher"><button class="lang-btn" onclick="toggleLanguage()" id="langBtn">EN</button></div>
-
-<div id="loadingPage" class="box hidden">
-  <h2 id="loadingText">İşleniyor...</h2>
-  <p style="text-align: center;">Kontroller yapılıyor.</p>
-</div>
 
 <div id="loginPage" class="box">
   <h2 data-key="loginTitle">Giriş Yap</h2>
@@ -57,7 +55,7 @@
   <div style="text-align:center; margin-top:15px;"><a onclick="switchPage('loginPage')" style="color:#0066cc; cursor:pointer; font-size:13px;" data-key="backBtn">Geri Dön</a></div>
 </div>
 
-<div id="bookingPage" class="box hidden" style="max-width: 550px;">
+<div id="bookingPage" class="box hidden">
   <h2 id="welcomeMsg">Hoş Geldiniz</h2>
   
   <div style="display:flex; gap:10px;">
@@ -66,8 +64,17 @@
       <input id="date" type="date">
     </div>
     <div style="flex:1;">
-      <label data-key="timeLabel">Saat</label>
-      <input id="time" type="time">
+      <label data-key="timeLabel">Saat Aralığı</label>
+      <select id="timeSlot">
+        <option value="09:00-10:00">09:00 - 10:00</option>
+        <option value="10:00-11:00">10:00 - 11:00</option>
+        <option value="11:00-12:00">11:00 - 12:00</option>
+        <option value="12:00-13:00">12:00 - 13:00</option>
+        <option value="13:00-14:00">13:00 - 14:00</option>
+        <option value="14:00-15:00">14:00 - 15:00</option>
+        <option value="15:00-16:00">15:00 - 16:00</option>
+        <option value="16:00-17:00">16:00 - 17:00</option>
+      </select>
     </div>
   </div>
   
@@ -81,7 +88,7 @@
         <tr>
           <th data-key="thDate">Tarih</th>
           <th data-key="thTime">Saat</th>
-          <th data-key="thStatus">Durum</th>
+          <th data-key="thAction">İşlem</th>
         </tr>
       </thead>
       <tbody id="appointmentTableBody"></tbody>
@@ -108,18 +115,18 @@
     tr: {
       loginTitle: "Giriş Yap", studentIdLabel: "Öğrenci Numarası", passLabel: "Şifre", signInBtn: "Giriş Yap",
       createAccLink: "Yeni Hesap Oluştur", regTitle: "Kayıt Ol", nameLabel: "Ad Soyad", signUpBtn: "Kayıt Ol",
-      backBtn: "Geri Dön", dateLabel: "Tarih Seçin", timeLabel: "Saat Seçin", bookBtn: "Randevu Al", 
+      backBtn: "Geri Dön", dateLabel: "Tarih Seçin", timeLabel: "Saat Aralığı", bookBtn: "Randevu Al", 
       logoutBtn: "Çıkış Yap", verifyMsg: "Lütfen mailinizi onaylayın!",
-      myBookingsTitle: "Randevularım", thDate: "Tarih", thTime: "Saat", thStatus: "Durum",
-      conflictError: "Bu saatte başka bir randevu mevcut! Lütfen başka bir saat seçin."
+      myBookingsTitle: "Randevularım", thDate: "Tarih", thTime: "Saat", thAction: "İşlem",
+      conflictError: "Bu saat dilimi dolu! Lütfen başka bir zaman seçin.", deleteConfirm: "Randevuyu silmek istediğinize emin misiniz?"
     },
     en: {
       loginTitle: "Login", studentIdLabel: "Student ID", passLabel: "Password", signInBtn: "Sign In",
       createAccLink: "Create New Account", regTitle: "Register", nameLabel: "Full Name", signUpBtn: "Sign Up",
-      backBtn: "Back", dateLabel: "Select Date", timeLabel: "Select Time", bookBtn: "Book Now", 
+      backBtn: "Back", dateLabel: "Select Date", timeLabel: "Time Slot", bookBtn: "Book Now", 
       logoutBtn: "Logout", verifyMsg: "Please verify your email!",
-      myBookingsTitle: "My Appointments", thDate: "Date", thTime: "Time", thStatus: "Status",
-      conflictError: "This slot is already taken! Please choose another time."
+      myBookingsTitle: "My Appointments", thDate: "Date", thTime: "Time", thAction: "Action",
+      conflictError: "This slot is already taken!", deleteConfirm: "Are you sure you want to delete this appointment?"
     }
   };
 
@@ -154,20 +161,6 @@
     document.getElementById(id).classList.remove('hidden');
   }
 
-  async function register() {
-    const studentId = document.getElementById("regStudentId").value.trim();
-    const fullName = document.getElementById("regFullName").value.trim();
-    const pass = document.getElementById("regPass").value;
-    try {
-      await account.create(ID.unique(), studentId + "@ogr.ikc.edu.tr", pass, fullName);
-      await account.createEmailSession(studentId + "@ogr.ikc.edu.tr", pass);
-      await account.createVerification(REDIRECT_URL);
-      alert("Doğrulama maili gönderildi.");
-      await account.deleteSession('current');
-      switchPage('loginPage');
-    } catch (e) { document.getElementById("regError").innerText = e.message; document.getElementById("regError").style.display='block'; }
-  }
-
   async function login() {
     const email = document.getElementById("loginStudentId").value.trim() + "@ogr.ikc.edu.tr";
     const pass = document.getElementById("loginPass").value;
@@ -179,8 +172,8 @@
         await account.deleteSession('current');
         return;
       }
-      document.getElementById("welcomeMsg").innerText = (currentLang === 'tr' ? "Merhaba, " : "Welcome, ") + currentUser.name;
       switchPage('bookingPage');
+      document.getElementById("welcomeMsg").innerText = (currentLang === 'tr' ? "Merhaba, " : "Welcome, ") + currentUser.name;
       loadAppointments();
     } catch (e) { document.getElementById("loginError").innerText = "Giriş başarısız."; document.getElementById("loginError").style.display='block'; }
   }
@@ -194,43 +187,61 @@
       const tbody = document.getElementById("appointmentTableBody");
       tbody.innerHTML = "";
       response.documents.forEach(doc => {
-        tbody.innerHTML += `<tr><td>${doc.date}</td><td>${doc.time}</td><td style="color:green;font-weight:bold;">OK</td></tr>`;
+        tbody.innerHTML += `
+          <tr>
+            <td>${doc.date}</td>
+            <td>${doc.time}</td>
+            <td><button class="delete-btn" onclick="deleteAppointment('${doc.$id}')">${currentLang === 'tr' ? 'Sil' : 'Delete'}</button></td>
+          </tr>`;
       });
     } catch (e) { console.error(e); }
   }
 
-  // ÇAKIŞMA KONTROLÜ VE KAYIT
   async function bookAppointment() {
     const dateVal = document.getElementById("date").value;
-    const timeVal = document.getElementById("time").value;
-    const errBox = document.getElementById("bookingError");
-    errBox.style.display = 'none';
-
-    if(!dateVal || !timeVal) { alert("Lütfen tarih ve saat seçin."); return; }
+    const timeVal = document.getElementById("timeSlot").value;
+    if(!dateVal) { alert("Tarih seçin!"); return; }
 
     try {
-      // 1. ADIM: Çakışma sorgusu yap
       const existing = await databases.listDocuments(DATABASE_ID, COLLECTION_ID, [
         Query.equal('date', dateVal),
         Query.equal('time', timeVal)
       ]);
 
-      // 2. ADIM: Eğer sonuç varsa, bu saat doludur
       if (existing.documents.length > 0) {
-        errBox.innerText = translations[currentLang].conflictError;
-        errBox.style.display = 'block';
+        document.getElementById("bookingError").innerText = translations[currentLang].conflictError;
+        document.getElementById("bookingError").style.display = 'block';
         return;
       }
 
-      // 3. ADIM: Çakışma yoksa kaydet
       await databases.createDocument(DATABASE_ID, COLLECTION_ID, ID.unique(), {
-        name: currentUser.name, 
-        date: dateVal, 
-        time: timeVal
+        name: currentUser.name, date: dateVal, time: timeVal
       });
-      alert(currentLang === 'tr' ? "Randevu onaylandı!" : "Appointment confirmed!");
+      alert(currentLang === 'tr' ? "Randevu alındı!" : "Booked!");
       loadAppointments();
     } catch (e) { alert(e.message); }
+  }
+
+  async function deleteAppointment(docId) {
+    if(!confirm(translations[currentLang].deleteConfirm)) return;
+    try {
+      await databases.deleteDocument(DATABASE_ID, COLLECTION_ID, docId);
+      loadAppointments();
+    } catch (e) { alert("Hata: " + e.message); }
+  }
+
+  async function register() {
+    const sid = document.getElementById("regStudentId").value.trim();
+    const name = document.getElementById("regFullName").value.trim();
+    const pass = document.getElementById("regPass").value;
+    try {
+      await account.create(ID.unique(), sid + "@ogr.ikc.edu.tr", pass, name);
+      await account.createEmailSession(sid + "@ogr.ikc.edu.tr", pass);
+      await account.createVerification(REDIRECT_URL);
+      alert("Doğrulama maili gönderildi.");
+      await account.deleteSession('current');
+      switchPage('loginPage');
+    } catch (e) { document.getElementById("regError").innerText = e.message; document.getElementById("regError").style.display='block'; }
   }
 
   async function logout() { await account.deleteSession('current'); location.reload(); }
