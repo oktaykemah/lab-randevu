@@ -3,98 +3,121 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>IKC Lab Booking - v1.3.0</title>
+  <title>IKC Lab Booking - v1.3.1</title>
   <script src="https://cdn.jsdelivr.net/npm/appwrite@13.0.1"></script>
   <style>
-    :root { --primary: #0066cc; --admin: #2c3e50; --danger: #ff4d4d; }
-    body { font-family: 'Segoe UI', sans-serif; background: #f4f7f9; margin: 0; padding: 20px; display: flex; justify-content: center; }
-    .box { background: #fff; padding: 25px; width: 100%; max-width: 700px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); position: relative; }
+    :root { --primary: #0066cc; --admin: #2c3e50; --danger: #ff4d4d; --success: #27ae60; }
+    body { font-family: 'Segoe UI', sans-serif; background: #f4f7f9; margin: 0; padding: 20px; display: flex; justify-content: center; min-height: 100vh; }
+    .box { background: #fff; padding: 25px; width: 100%; max-width: 750px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); position: relative; height: fit-content; }
     .hidden { display: none; }
-    h2, h3 { color: #333; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+    h2, h3 { color: #333; border-bottom: 2px solid #eee; padding-bottom: 10px; margin-top: 0; }
     
-    /* Form Elemanları */
     label { font-weight: bold; font-size: 13px; display: block; margin-top: 15px; color: #555; }
-    select, input, button { width: 100%; padding: 12px; margin-top: 8px; border-radius: 8px; border: 1px solid #ddd; font-size: 14px; }
+    select, input, button { width: 100%; padding: 12px; margin-top: 8px; border-radius: 8px; border: 1px solid #ddd; box-sizing: border-box; }
     
-    /* Checkbox Izgarası */
-    .grid-options { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-top: 10px; background: #f9f9f9; padding: 10px; border-radius: 8px; }
-    .opt-item { display: flex; align-items: center; font-size: 13px; cursor: pointer; }
-    .opt-item input { width: auto; margin-top: 0; margin-right: 8px; }
+    .grid-options { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; margin-top: 10px; background: #f9f9f9; padding: 15px; border-radius: 8px; border: 1px solid #eee; }
+    .opt-item { display: flex; align-items: center; font-size: 13px; cursor: pointer; padding: 5px; background: white; border-radius: 4px; border: 1px solid #eee; }
+    .opt-item input { width: auto; margin: 0 8px 0 0; }
 
-    .main-btn { background: var(--primary); color: white; border: none; font-weight: bold; cursor: pointer; transition: 0.3s; }
-    .main-btn:hover { opacity: 0.8; }
-    .admin-mode { border-top: 5px solid var(--admin); }
-    .delete-btn { background: var(--danger); color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; width: auto; }
+    .main-btn { background: var(--primary); color: white; border: none; font-weight: bold; cursor: pointer; transition: 0.3s; margin-top: 20px; }
+    .main-btn:hover { opacity: 0.9; transform: translateY(-1px); }
     
-    table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 13px; }
-    th, td { text-align: left; padding: 12px; border-bottom: 1px solid #eee; }
-    th { background: #f8f9fa; }
+    .admin-mode { border-top: 8px solid var(--admin); }
+    .delete-btn { background: var(--danger); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; width: auto; font-size: 12px; }
+    
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    th, td { text-align: left; padding: 12px; border-bottom: 1px solid #eee; font-size: 13px; }
+    th { background: #f8f9fa; color: #666; }
+    
+    .status-badge { padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; background: #e8f5e9; color: var(--success); }
   </style>
 </head>
 <body>
 
 <div id="app" class="box">
     <div id="loginPage">
-        <h2>IKC Lab Randevu Sistemi</h2>
-        <label>E-posta Uzantısı</label>
+        <h2>IKC Lab Randevu</h2>
+        <label>Giriş Türü</label>
         <select id="loginDomain">
             <option value="@ogr.ikc.edu.tr">Öğrenci (@ogr.ikc.edu.tr)</option>
-            <option value="@ikc.edu.tr">Akademik (@ikc.edu.tr)</option>
+            <option value="@ikc.edu.tr">Akademik Personel (@ikc.edu.tr)</option>
         </select>
-        <input id="loginId" type="text" placeholder="Öğrenci No / Personel ID">
-        <input id="loginPass" type="password" placeholder="Şifre">
+        <label>Kullanıcı ID (Örn: 160411006)</label>
+        <input id="loginId" type="text" placeholder="ID Giriniz">
+        <label>Şifre</label>
+        <input id="loginPass" type="password" placeholder="******">
         <button class="main-btn" onclick="handleLogin()">Giriş Yap</button>
+        <div style="text-align: center; margin-top: 15px;">
+            <a href="#" onclick="switchPage('registerPage')" style="color: var(--primary); font-size: 13px; text-decoration: none;">Yeni Hesap Oluştur</a>
+        </div>
+    </div>
+
+    <div id="registerPage" class="hidden">
+        <h2>Yeni Kayıt</h2>
+        <label>Hesap Türü</label>
+        <select id="regDomain">
+            <option value="@ogr.ikc.edu.tr">Öğrenci (@ogr.ikc.edu.tr)</option>
+            <option value="@ikc.edu.tr">Akademik Personel (@ikc.edu.tr)</option>
+        </select>
+        <input id="regId" type="text" placeholder="ID / Öğrenci No">
+        <input id="regFullName" type="text" placeholder="Ad Soyad">
+        <input id="regPass" type="password" placeholder="Şifre">
+        <button class="main-btn" onclick="handleRegister()">Kayıt Ol ve Onay Maili Gönder</button>
+        <button onclick="switchPage('loginPage')" style="background: none; border: none; color: #666; margin-top: 10px; cursor: pointer;">Geri Dön</button>
     </div>
 
     <div id="bookingPage" class="hidden">
         <h2 id="userGreet">Hoş Geldiniz</h2>
-        
-        <label>1. Laboratuvar Seçin</label>
-        <select id="labSelect" onchange="updateEquipmentList()">
+        <label>Laboratuvar Seçimi</label>
+        <select id="labSelect" onchange="fetchEquipments()">
             <option value="">Seçiniz...</option>
             <option value="Malzeme Karakterizasyon Lab.">Malzeme Karakterizasyon Lab.</option>
             <option value="Numune Hazırlama Lab.">Numune Hazırlama Lab.</option>
             <option value="Üretim Lab.">Üretim Lab.</option>
         </select>
 
-        <label>2. Cihaz(lar) Seçin</label>
+        <label>Cihaz Seçimi (Birden fazla seçilebilir)</label>
         <div id="equipmentGrid" class="grid-options">Laboratuvar seçiniz...</div>
 
-        <label>3. Tarih Seçin</label>
-        <input id="resDate" type="date">
-
-        <label>4. Saat Dilimi Seçin (Birden fazla seçilebilir)</label>
-        <div id="timeGrid" class="grid-options">
+        <div style="display:flex; gap:15px;">
+            <div style="flex:1;">
+                <label>Tarih</label>
+                <input id="resDate" type="date">
             </div>
+        </div>
 
-        <button class="main-btn" onclick="saveBooking()" style="margin-top: 20px;">Randevuyu Onayla</button>
+        <label>Saat Aralığı Seçimi (Birden fazla seçilebilir)</label>
+        <div id="timeGrid" class="grid-options"></div>
+
+        <button class="main-btn" onclick="saveBooking()">Randevuyu Kaydet</button>
         
         <div class="table-section">
             <h3>Randevularım</h3>
-            <table id="userTable"><thead><tr><th>Cihaz</th><th>Tarih</th><th>Saat</th><th>İşlem</th></tr></thead><tbody id="userBody"></tbody></table>
+            <table><thead><tr><th>Lab / Cihaz</th><th>Tarih</th><th>Saat</th><th>İşlem</th></tr></thead><tbody id="userBody"></tbody></table>
         </div>
-        <button onclick="logout()" style="background:#666; color:white;">Çıkış Yap</button>
+        <button onclick="logout()" style="background:#666; color:white; margin-top:20px;">Çıkış Yap</button>
     </div>
 
     <div id="adminPage" class="hidden admin-mode">
         <h2>Admin Yönetim Paneli</h2>
-        <div style="background: #f0f2f5; padding: 15px; border-radius: 8px;">
-            <h3>Yeni Cihaz Ekle</h3>
+        <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; border: 1px solid #ddd;">
+            <h3>Envanter Yönetimi (Cihaz Ekle)</h3>
+            <label>Laboratuvar</label>
             <select id="adminLabSelect">
                 <option value="Malzeme Karakterizasyon Lab.">Malzeme Karakterizasyon Lab.</option>
                 <option value="Numune Hazırlama Lab.">Numune Hazırlama Lab.</option>
                 <option value="Üretim Lab.">Üretim Lab.</option>
             </select>
-            <input id="newEquipName" type="text" placeholder="Cihaz Adı">
-            <button class="main-btn" onclick="addEquipment()" style="background: var(--admin);">Cihazı Listeye Ekle</button>
+            <input id="newEquipName" type="text" placeholder="Yeni Cihaz Adı">
+            <button class="main-btn" onclick="addEquipmentToDB()" style="background: var(--admin);">Listeye Kaydet</button>
         </div>
 
-        <h3>Tüm Aktif Randevular</h3>
+        <h3>Tüm Laboratuvar Randevuları</h3>
         <table>
-            <thead><tr><th>Öğrenci</th><th>Lab</th><th>Cihaz</th><th>Zaman</th><th>İşlem</th></tr></thead>
+            <thead><tr><th>Öğrenci</th><th>Lab</th><th>Cihazlar</th><th>Tarih/Saat</th><th>İşlem</th></tr></thead>
             <tbody id="adminBody"></tbody>
         </table>
-        <button onclick="logout()" style="margin-top:20px;">Güvenli Çıkış</button>
+        <button onclick="logout()" style="background:#666; color:white; margin-top:20px;">Güvenli Çıkış</button>
     </div>
 </div>
 
@@ -106,79 +129,96 @@ const databases = new Databases(client);
 
 const DB_ID = '6981c42a00202c6cdf0e';
 const COLL_APP = 'appointments';
-const COLL_EQUIP = 'equipments'; // Appwrite'da bu isimle yeni bir koleksiyon oluşturmalısın (Alanlar: name, lab)
-
-// Varsayılan Cihazlar (Eğer DB boşsa ilk kurulum için)
-let labEquipments = {
-    "Malzeme Karakterizasyon Lab.": ["Reçine 3D yazıcı", "Temas Açısı", "Genel Kullanım"],
-    "Numune Hazırlama Lab.": ["Hassas Kesme", "Zımparalama Parlatma", "Sıcak Bakalite Alma"],
-    "Üretim Lab.": ["CNC Torna", "Frezleme", "Isıl İşlem Fırını"]
-};
+const COLL_EQUIP = 'equipments';
+const REDIRECT_URL = "https://oktaykemah.github.io/lab-randevu/";
 
 const hours = ["09:00-10:00", "10:00-11:00", "11:00-12:00", "12:00-13:00", "13:00-14:00", "14:00-15:00", "15:00-16:00", "16:00-17:00"];
+let currentUser = null;
 
+// GİRİŞ VE OTURUM KONTROLÜ
 async function handleLogin() {
-    const email = document.getElementById("loginId").value + document.getElementById("loginDomain").value;
+    const email = document.getElementById("loginId").value.trim() + document.getElementById("loginDomain").value;
     const pass = document.getElementById("loginPass").value;
     try {
         await account.createEmailSession(email, pass);
-        checkSession();
+        location.reload();
     } catch (e) { alert("Hata: " + e.message); }
+}
+
+async function handleRegister() {
+    const email = document.getElementById("regId").value.trim() + document.getElementById("regDomain").value;
+    const name = document.getElementById("regFullName").value;
+    const pass = document.getElementById("regPass").value;
+    try {
+        await account.create(ID.unique(), email, pass, name);
+        await account.createEmailSession(email, pass);
+        await account.createVerification(REDIRECT_URL);
+        alert("Doğrulama maili gönderildi. Lütfen onaylayıp giriş yapın.");
+        await account.deleteSession('current');
+        switchPage('loginPage');
+    } catch (e) { alert("Kayıt Hatası: " + e.message); }
 }
 
 async function checkSession() {
     try {
-        const user = await account.get();
+        currentUser = await account.get();
+        if (!currentUser.emailVerification) {
+            alert("Lütfen önce e-postanızı doğrulayın!");
+            await account.deleteSession('current');
+            return;
+        }
         document.getElementById("loginPage").classList.add("hidden");
-        if(user.email.endsWith("@ikc.edu.tr")) {
+        if(currentUser.email.endsWith("@ikc.edu.tr")) {
             document.getElementById("adminPage").classList.remove("hidden");
             loadAdminData();
         } else {
             document.getElementById("bookingPage").classList.remove("hidden");
-            document.getElementById("userGreet").innerText = "Merhaba, " + user.name;
-            initBookingForm();
-            loadUserData(user.name);
+            document.getElementById("userGreet").innerText = "Merhaba, " + currentUser.name;
+            initTimeGrid();
+            loadUserData();
         }
-    } catch (e) { /* Logged out */ }
+    } catch (e) { /* Misafir */ }
 }
 
-function initBookingForm() {
-    const tGrid = document.getElementById("timeGrid");
-    tGrid.innerHTML = hours.map(h => `<label class="opt-item"><input type="checkbox" name="timeSlot" value="${h}">${h}</label>`).join('');
+// CİHAZ VE RANDEVU İŞLEMLERİ
+function initTimeGrid() {
+    document.getElementById("timeGrid").innerHTML = hours.map(h => `<label class="opt-item"><input type="checkbox" name="timeSlot" value="${h}">${h}</label>`).join('');
 }
 
-function updateEquipmentList() {
+async function fetchEquipments() {
     const lab = document.getElementById("labSelect").value;
     const eGrid = document.getElementById("equipmentGrid");
     if(!lab) { eGrid.innerHTML = "Seçiniz..."; return; }
     
-    const devices = labEquipments[lab] || [];
-    eGrid.innerHTML = devices.map(d => `<label class="opt-item"><input type="checkbox" name="equip" value="${d}">${d}</label>`).join('');
+    try {
+        const res = await databases.listDocuments(DB_ID, COLL_EQUIP, [Query.equal('lab', lab)]);
+        if(res.total === 0) {
+            eGrid.innerHTML = "Bu labda henüz kayıtlı cihaz yok.";
+            return;
+        }
+        eGrid.innerHTML = res.documents.map(d => `<label class="opt-item"><input type="checkbox" name="equip" value="${d.name}">${d.name}</label>`).join('');
+    } catch (e) { eGrid.innerHTML = "Cihazlar yüklenemedi."; }
 }
 
 async function saveBooking() {
-    const user = await account.get();
     const lab = document.getElementById("labSelect").value;
     const date = document.getElementById("resDate").value;
     const selectedEquips = Array.from(document.querySelectorAll('input[name="equip"]:checked')).map(e => e.value);
     const selectedTimes = Array.from(document.querySelectorAll('input[name="timeSlot"]:checked')).map(e => e.value);
 
-    if(!lab || !date || selectedEquips.length === 0 || selectedTimes.length === 0) {
-        alert("Lütfen tüm alanları doldurun!"); return;
-    }
+    if(!lab || !date || selectedEquips.length === 0 || selectedTimes.length === 0) { alert("Eksik alan!"); return; }
 
-    // Çakışma Kontrolü (Aynı gün, aynı lab, seçilen cihazlardan herhangi biri, seçilen saatlerden herhangi biri)
-    // Gerçek sistemde bu döngü ile tek tek kontrol edilir.
-    for(let device of selectedEquips) {
-        for(let time of selectedTimes) {
-            const conflict = await databases.listDocuments(DB_ID, COLL_APP, [
+    // Çakışma Kontrolü (Aynı lab + Aynı Tarih + Aynı Cihaz + Aynı Saat)
+    for(let dev of selectedEquips) {
+        for(let t of selectedTimes) {
+            const check = await databases.listDocuments(DB_ID, COLL_APP, [
                 Query.equal('date', date),
                 Query.equal('lab', lab),
-                Query.equal('time', time),
-                Query.search('equipment', device)
+                Query.equal('time', t),
+                Query.search('equipment', dev)
             ]);
-            if(conflict.total > 0) {
-                alert(`Çakışma! ${device} cihazı ${time} saatinde zaten dolu.`);
+            if(check.total > 0) {
+                alert(`Çakışma! ${dev} cihazı ${t} saatinde dolu.`);
                 return;
             }
         }
@@ -186,65 +226,79 @@ async function saveBooking() {
 
     try {
         await databases.createDocument(DB_ID, COLL_APP, ID.unique(), {
-            name: user.name,
+            name: currentUser.name,
             lab: lab,
             date: date,
             equipment: selectedEquips.join(', '),
             time: selectedTimes.join(', ')
         });
-        alert("Randevu başarıyla oluşturuldu!");
-        loadUserData(user.name);
+        alert("Randevu Onaylandı!");
+        loadUserData();
     } catch (e) { alert(e.message); }
 }
 
-async function loadUserData(userName) {
-    const res = await databases.listDocuments(DB_ID, COLL_APP, [Query.equal('name', userName)]);
-    const body = document.getElementById("userBody");
-    body.innerHTML = res.documents.map(doc => `
-        <tr>
-            <td><b>${doc.lab}</b><br><small>${doc.equipment}</small></td>
-            <td>${doc.date}</td>
-            <td>${doc.time}</td>
-            <td><button class="delete-btn" onclick="deleteRes('${doc.$id}')">İptal</button></td>
-        </tr>
-    `).join('');
+// ADMIN FONKSİYONLARI
+async function addEquipmentToDB() {
+    const lab = document.getElementById("adminLabSelect").value;
+    const name = document.getElementById("newEquipName").value.trim();
+    if(!name) return;
+    try {
+        await databases.createDocument(DB_ID, COLL_EQUIP, ID.unique(), { name, lab });
+        alert("Cihaz eklendi!");
+        document.getElementById("newEquipName").value = "";
+    } catch (e) { alert(e.message); }
 }
 
 async function loadAdminData() {
-    const res = await databases.listDocuments(DB_ID, COLL_APP);
-    const body = document.getElementById("adminBody");
-    body.innerHTML = res.documents.map(doc => `
+    const res = await databases.listDocuments(DB_ID, COLL_APP, [Query.orderDesc('$createdAt')]);
+    document.getElementById("adminBody").innerHTML = res.documents.map(doc => `
         <tr>
             <td>${doc.name}</td>
             <td>${doc.lab}</td>
-            <td>${doc.equipment}</td>
-            <td>${doc.date} / ${doc.time}</td>
+            <td><small>${doc.equipment}</small></td>
+            <td>${doc.date}<br>${doc.time}</td>
             <td><button class="delete-btn" onclick="deleteRes('${doc.$id}', true)">Sil</button></td>
         </tr>
     `).join('');
 }
 
-async function addEquipment() {
-    const lab = document.getElementById("adminLabSelect").value;
-    const name = document.getElementById("newEquipName").value;
-    if(!name) return;
-    
-    // Yerel listede güncelle (Gerçekte bu Appwrite Koleksiyonuna yazılmalı)
-    if(!labEquipments[lab]) labEquipments[lab] = [];
-    labEquipments[lab].push(name);
-    alert(name + " eklendi!");
-    document.getElementById("newEquipName").value = "";
+async function loadUserData() {
+    const res = await databases.listDocuments(DB_ID, COLL_APP, [Query.equal('name', currentUser.name), Query.orderDesc('$createdAt')]);
+    document.getElementById("userBody").innerHTML = res.documents.map(doc => `
+        <tr>
+            <td><b>${doc.lab}</b><br><small>${doc.equipment}</small></td>
+            <td>${doc.date}</td>
+            <td>${doc.time}</td>
+            <td><button class="delete-btn" onclick="deleteRes('${doc.$id}', false)">İptal</button></td>
+        </tr>
+    `).join('');
 }
 
 async function deleteRes(id, isAdmin) {
-    if(!confirm("Bu randevuyu silmek istediğinize emin misiniz?")) return;
+    if(!confirm("Emin misiniz?")) return;
     await databases.deleteDocument(DB_ID, COLL_APP, id);
-    isAdmin ? loadAdminData() : checkSession();
+    isAdmin ? loadAdminData() : loadUserData();
+}
+
+function switchPage(id) {
+    document.getElementById("loginPage").classList.add("hidden");
+    document.getElementById("registerPage").classList.add("hidden");
+    document.getElementById(id).classList.remove("hidden");
 }
 
 async function logout() { await account.deleteSession('current'); location.reload(); }
 
-window.onload = checkSession;
+window.onload = async () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('userId')) {
+        try {
+            await account.updateVerification(urlParams.get('userId'), urlParams.get('secret'));
+            alert("Doğrulama Başarılı!");
+            window.location.href = REDIRECT_URL;
+        } catch (e) { alert("Onay Hatası"); }
+    }
+    checkSession();
+};
 </script>
 </body>
 </html>
