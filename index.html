@@ -3,38 +3,34 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>IKC Lab Booking - v1.1.0</title>
+  <title>IKC Lab Booking - v1.1.1</title>
   <script src="https://cdn.jsdelivr.net/npm/appwrite@13.0.1"></script>
   <style>
     .version { position: absolute; top: 10px; left: 10px; font-size: 12px; color: #999; font-weight: bold; }
     .lang-switcher { position: absolute; top: 10px; right: 10px; }
     .lang-btn { background: #fff; border: 2px solid #0066cc; color: #0066cc; padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: bold; }
     body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }
-    .box { background: #fff; padding: 30px; width: 100%; max-width: 400px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); position: relative; }
-    .booking-container { max-width: 600px; } /* Randevu sayfası biraz daha geniş olsun */
+    .box { background: #fff; padding: 30px; width: 100%; max-width: 450px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); position: relative; }
     .hidden { display: none; }
     h2 { text-align: center; color: #333; margin-bottom: 20px; }
     label { font-size: 13px; color: #666; font-weight: bold; display: block; margin-top: 10px; }
     input, button { width: 100%; padding: 12px; margin-top: 8px; border-radius: 8px; border: 1px solid #ddd; box-sizing: border-box; }
     .main-btn { background: #0066cc; color: white; border: none; font-weight: bold; cursor: pointer; margin-top: 15px; }
     .error-box { background: #ffebee; color: #c62828; padding: 10px; border-radius: 8px; font-size: 12px; margin-top: 10px; border: 1px solid #ef9a9a; display: none; }
-    
-    /* TABLO STİLLERİ */
-    .table-section { margin-top: 30px; border-top: 2px solid #eee; pt: 20px; }
+    .table-section { margin-top: 30px; border-top: 2px solid #eee; padding-top: 20px; }
     table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 14px; }
     th { background: #f8f9fa; color: #666; text-align: left; padding: 10px; border-bottom: 2px solid #eee; }
     td { padding: 10px; border-bottom: 1px solid #eee; color: #333; }
-    .no-data { text-align: center; color: #999; padding: 20px; }
   </style>
 </head>
 <body>
 
-<div class="version">v1.1.0</div>
+<div class="version">v1.1.1</div>
 <div class="lang-switcher"><button class="lang-btn" onclick="toggleLanguage()" id="langBtn">EN</button></div>
 
 <div id="loadingPage" class="box hidden">
   <h2 id="loadingText">İşleniyor...</h2>
-  <p style="text-align: center;">Lütfen bekleyin.</p>
+  <p style="text-align: center;">Kontroller yapılıyor.</p>
 </div>
 
 <div id="loginPage" class="box">
@@ -53,7 +49,7 @@
   <label data-key="studentIdLabel">Öğrenci Numarası</label>
   <input id="regStudentId" type="text" placeholder="160411006">
   <label data-key="nameLabel">Ad Soyad</label>
-  <input id="regFullName" type="text" placeholder="John Doe">
+  <input id="regFullName" type="text" placeholder="Ad Soyad">
   <label data-key="passLabel">Şifre</label>
   <input id="regPass" type="password">
   <button class="main-btn" onclick="register()" data-key="signUpBtn">Kayıt Ol</button>
@@ -61,7 +57,7 @@
   <div style="text-align:center; margin-top:15px;"><a onclick="switchPage('loginPage')" style="color:#0066cc; cursor:pointer; font-size:13px;" data-key="backBtn">Geri Dön</a></div>
 </div>
 
-<div id="bookingPage" class="box booking-container hidden">
+<div id="bookingPage" class="box hidden" style="max-width: 550px;">
   <h2 id="welcomeMsg">Hoş Geldiniz</h2>
   
   <div style="display:flex; gap:10px;">
@@ -76,7 +72,8 @@
   </div>
   
   <button class="main-btn" onclick="bookAppointment()" data-key="bookBtn">Randevu Al</button>
-  
+  <div id="bookingError" class="error-box"></div>
+
   <div class="table-section">
     <h3 style="font-size:16px; color:#444;" data-key="myBookingsTitle">Randevularım</h3>
     <table>
@@ -87,10 +84,8 @@
           <th data-key="thStatus">Durum</th>
         </tr>
       </thead>
-      <tbody id="appointmentTableBody">
-        </tbody>
+      <tbody id="appointmentTableBody"></tbody>
     </table>
-    <div id="noDataMsg" class="no-data hidden" data-key="noData">Henüz randevunuz bulunmuyor.</div>
   </div>
 
   <button class="main-btn" style="background:#555; margin-top:30px;" onclick="logout()" data-key="logoutBtn">Çıkış Yap</button>
@@ -115,14 +110,16 @@
       createAccLink: "Yeni Hesap Oluştur", regTitle: "Kayıt Ol", nameLabel: "Ad Soyad", signUpBtn: "Kayıt Ol",
       backBtn: "Geri Dön", dateLabel: "Tarih Seçin", timeLabel: "Saat Seçin", bookBtn: "Randevu Al", 
       logoutBtn: "Çıkış Yap", verifyMsg: "Lütfen mailinizi onaylayın!",
-      myBookingsTitle: "Randevularım", thDate: "Tarih", thTime: "Saat", thStatus: "Durum", noData: "Henüz randevunuz bulunmuyor."
+      myBookingsTitle: "Randevularım", thDate: "Tarih", thTime: "Saat", thStatus: "Durum",
+      conflictError: "Bu saatte başka bir randevu mevcut! Lütfen başka bir saat seçin."
     },
     en: {
       loginTitle: "Login", studentIdLabel: "Student ID", passLabel: "Password", signInBtn: "Sign In",
       createAccLink: "Create New Account", regTitle: "Register", nameLabel: "Full Name", signUpBtn: "Sign Up",
       backBtn: "Back", dateLabel: "Select Date", timeLabel: "Select Time", bookBtn: "Book Now", 
       logoutBtn: "Logout", verifyMsg: "Please verify your email!",
-      myBookingsTitle: "My Appointments", thDate: "Date", thTime: "Time", thStatus: "Status", noData: "No appointments yet."
+      myBookingsTitle: "My Appointments", thDate: "Date", thTime: "Time", thStatus: "Status",
+      conflictError: "This slot is already taken! Please choose another time."
     }
   };
 
@@ -144,7 +141,6 @@
     updateUI();
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('userId') && urlParams.get('secret')) {
-      switchPage('loadingPage');
       try {
         await account.updateVerification(urlParams.get('userId'), urlParams.get('secret'));
         alert("Hesap doğrulandı!");
@@ -183,53 +179,57 @@
         await account.deleteSession('current');
         return;
       }
-      document.getElementById("welcomeMsg").innerText = currentLang === 'tr' ? "Merhaba, " + currentUser.name : "Welcome, " + currentUser.name;
+      document.getElementById("welcomeMsg").innerText = (currentLang === 'tr' ? "Merhaba, " : "Welcome, ") + currentUser.name;
       switchPage('bookingPage');
       loadAppointments();
     } catch (e) { document.getElementById("loginError").innerText = "Giriş başarısız."; document.getElementById("loginError").style.display='block'; }
   }
 
-  // RANDEVULARI YÜKLEME FONKSİYONU
   async function loadAppointments() {
     try {
       const response = await databases.listDocuments(DATABASE_ID, COLLECTION_ID, [
-        Query.equal('name', currentUser.name), // Sadece bu öğrencinin adıyla eşleşenler
-        Query.orderDesc('$createdAt') // En yeni en üstte
+        Query.equal('name', currentUser.name),
+        Query.orderDesc('$createdAt')
       ]);
-      
       const tbody = document.getElementById("appointmentTableBody");
-      const noData = document.getElementById("noDataMsg");
       tbody.innerHTML = "";
-      
-      if (response.documents.length === 0) {
-        noData.classList.remove("hidden");
-      } else {
-        noData.classList.add("hidden");
-        response.documents.forEach(doc => {
-          const row = `<tr>
-            <td>${doc.date}</td>
-            <td>${doc.time}</td>
-            <td style="color:green; font-weight:bold;">${currentLang === 'tr' ? 'Onaylandı' : 'Confirmed'}</td>
-          </tr>`;
-          tbody.innerHTML += row;
-        });
-      }
-    } catch (e) { console.error("Tablo yüklenirken hata:", e); }
+      response.documents.forEach(doc => {
+        tbody.innerHTML += `<tr><td>${doc.date}</td><td>${doc.time}</td><td style="color:green;font-weight:bold;">OK</td></tr>`;
+      });
+    } catch (e) { console.error(e); }
   }
 
+  // ÇAKIŞMA KONTROLÜ VE KAYIT
   async function bookAppointment() {
     const dateVal = document.getElementById("date").value;
     const timeVal = document.getElementById("time").value;
-    if(!dateVal || !timeVal) { alert("Tarih ve saat seçin!"); return; }
+    const errBox = document.getElementById("bookingError");
+    errBox.style.display = 'none';
+
+    if(!dateVal || !timeVal) { alert("Lütfen tarih ve saat seçin."); return; }
 
     try {
+      // 1. ADIM: Çakışma sorgusu yap
+      const existing = await databases.listDocuments(DATABASE_ID, COLLECTION_ID, [
+        Query.equal('date', dateVal),
+        Query.equal('time', timeVal)
+      ]);
+
+      // 2. ADIM: Eğer sonuç varsa, bu saat doludur
+      if (existing.documents.length > 0) {
+        errBox.innerText = translations[currentLang].conflictError;
+        errBox.style.display = 'block';
+        return;
+      }
+
+      // 3. ADIM: Çakışma yoksa kaydet
       await databases.createDocument(DATABASE_ID, COLLECTION_ID, ID.unique(), {
         name: currentUser.name, 
         date: dateVal, 
         time: timeVal
       });
-      alert("Randevu alındı!");
-      loadAppointments(); // Tabloyu anlık güncelle
+      alert(currentLang === 'tr' ? "Randevu onaylandı!" : "Appointment confirmed!");
+      loadAppointments();
     } catch (e) { alert(e.message); }
   }
 
