@@ -3,21 +3,25 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>IKC Lab Booking - v1.6.3</title>
+  <title>IKC Lab Booking - v1.6.4</title>
   <script src="https://cdn.jsdelivr.net/npm/appwrite@13.0.1"></script>
   <style>
-    :root { --primary: #0066cc; --admin: #2c3e50; --danger: #e74c3c; --success: #27ae60; --warning: #f39c12; --occupied-other: #fdeaea; --occupied-me: #e3f2fd; --holiday: #fff3e0; }
+    :root { --primary: #0066cc; --admin: #2c3e50; --danger: #e74c3c; --success: #27ae60; --warning: #f39c12; --info: #17a2b8; --occupied-other: #fdeaea; --occupied-me: #e3f2fd; --holiday: #fff3e0; }
     body { font-family: 'Segoe UI', sans-serif; background: #f4f7f9; margin: 0; padding: 20px; display: flex; justify-content: center; min-height: 100vh; position: relative; }
+    
     .version-tag { position: fixed; bottom: 10px; left: 10px; font-size: 11px; color: #888; z-index: 1000; font-weight: bold; background: rgba(255,255,255,0.7); padding: 2px 5px; border-radius: 4px; }
+    
     .box { background: #fff; padding: 25px; width: 100%; max-width: 1100px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); position: relative; }
     .hidden { display: none; }
     h2, h3 { color: #333; border-bottom: 2px solid #eee; padding-bottom: 10px; margin-top: 0; }
     label { font-weight: bold; font-size: 13px; display: block; margin-top: 15px; color: #555; }
     select, input, button { width: 100%; padding: 10px; margin-top: 8px; border-radius: 8px; border: 1px solid #ddd; box-sizing: border-box; }
+    
     .grid-options { display: grid; grid-template-columns: repeat(auto-fill, minmax(165px, 1fr)); gap: 10px; margin-top: 10px; background: #f9f9f9; padding: 15px; border-radius: 8px; }
     .opt-item { display: flex; align-items: center; font-size: 12px; cursor: pointer; padding: 5px; background: white; border: 1px solid #eee; border-radius: 4px; }
     .opt-item.disabled { background: #eee; color: #888; cursor: not-allowed; opacity: 0.7; }
     .opt-item input { width: auto; margin: 0 8px 0 0; }
+    
     .calendar-container { overflow-x: auto; margin-top: 20px; border: 1px solid #ddd; border-radius: 8px; }
     .cal-table { width: 100%; border-collapse: collapse; background: white; min-width: 600px; }
     .cal-table th, .cal-table td { border: 1px solid #eee; padding: 10px; text-align: center; font-size: 11px; }
@@ -26,17 +30,28 @@
     .slot-other { background: var(--occupied-other); color: var(--danger); font-weight: bold; }
     .slot-free { color: var(--success); font-weight: bold; }
     .slot-inactive { background: #f2f2f2; color: #a0a0a0; font-style: italic; font-weight: bold; }
+    
     .main-btn { background: var(--primary); color: white; border: none; font-weight: bold; cursor: pointer; transition: 0.3s; margin-top: 20px; }
-    .edit-btn { background: var(--warning); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; }
-    .delete-btn { background: var(--danger); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; }
     .save-envanter-btn { background: var(--success); color: white; border: none; padding: 12px; border-radius: 8px; cursor: pointer; margin-top: 15px; font-weight: bold; width: 100%; }
-    .info-card { background: #e3f2fd; padding: 12px; border-radius: 8px; color: #0d47a1; font-size: 13px; font-weight: bold; margin-bottom: 15px; border-left: 5px solid var(--primary); }
+    .delete-btn { background: var(--danger); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; }
+    .edit-btn { background: var(--warning); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; margin-right: 5px; }
+    .info-btn { background: var(--info); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; margin-right: 5px; font-weight: bold; }
+    
+    table.res-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    .res-table th, .res-table td { text-align: left; padding: 12px; border-bottom: 1px solid #eee; font-size: 13px; }
+    .info-card { background: #e3f2fd; padding: 12px; border-radius: 8px; color: #0d47a1; font-size: 13px; font-weight: bold; margin-bottom: 15px; border-left: 5px solid var(--primary); line-height: 1.4; }
     .holiday-msg { background: var(--holiday); color: #e65100; padding: 15px; border-radius: 8px; text-align: center; font-weight: bold; margin-bottom: 15px; border: 1px solid #ffe0b2; }
+
+    /* MODAL STYLES */
+    .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 2000; }
+    .modal-content { background: white; padding: 25px; border-radius: 10px; width: 90%; max-width: 500px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); position: relative; }
+    .close-modal { position: absolute; top: 10px; right: 15px; font-size: 20px; cursor: pointer; font-weight: bold; color: #666; }
+    .log-box { background: #f8f9fa; padding: 10px; border: 1px solid #ddd; border-radius: 5px; max-height: 200px; overflow-y: auto; font-family: monospace; font-size: 12px; margin-top: 10px; white-space: pre-wrap; }
   </style>
 </head>
 <body>
 
-<div class="version-tag">v1.6.3</div>
+<div class="version-tag">v1.6.4</div>
 
 <div id="app" class="box">
     <div id="loginPage">
@@ -53,7 +68,7 @@
         <select id="regDomain"><option value="@ogr.ikc.edu.tr">Öğrenci</option><option value="@ikc.edu.tr">Akademik</option></select>
         <input id="regId" type="text" placeholder="ID"><input id="regFullName" type="text" placeholder="Ad Soyad"><input id="regPass" type="password" placeholder="Şifre">
         <button class="main-btn" onclick="handleRegister()">Kayıt Ol</button>
-        <button onclick="switchPage('loginPage')" style="background:none; border:none; color:#666;">Geri Dön</button>
+        <button onclick="switchPage('loginPage')" style="background:none; border:none; color:#666; cursor:pointer;">Geri Dön</button>
     </div>
 
     <div id="bookingPage" class="hidden">
@@ -113,6 +128,16 @@
         <table class="res-table"><thead><tr><th>Kullanıcı</th><th>Cihaz</th><th>Zaman</th><th>İşlem</th></tr></thead><tbody id="adminBody"></tbody></table>
         <button onclick="logout()" style="background:#666; color:white; margin-top:20px;">Güvenli Çıkış</button>
     </div>
+
+    <div id="detailModal" class="hidden modal">
+        <div class="modal-content">
+            <span class="close-modal" onclick="closeModal()">×</span>
+            <h3>Randevu Detayları</h3>
+            <div id="modalDetails"></div>
+            <h4>İşlem Geçmişi (Log)</h4>
+            <div id="modalLogs" class="log-box"></div>
+        </div>
+    </div>
 </div>
 
 <script>
@@ -125,9 +150,9 @@ const DB_ID = '6981c42a00202c6cdf0e', COLL_APP = 'appointments', COLL_EQUIP = 'e
 const SUPER_ADMINS = ["oktay.kemah@ikc.edu.tr", "saadet.guler@ikc.edu.tr", "metehan.atagur@ikc.edu.tr", "berk.ozler@ikc.edu.tr"];
 const LAB_BOSSES = { "Numune Hazırlama Lab.": "Arş. Gör. Oktay Kemah", "Malzeme Karakterizasyon Lab.": "Öğr. Gör. Dr. Saadet Güler", "Üretim Lab.": "Arş.Gör.Dr. Metehan Atagür - Arş.Gör. Berk Özler" };
 const hours = ["09:00-10:00", "10:00-11:00", "11:00-12:00", "12:00-13:00", "13:00-14:00", "14:00-15:00", "15:00-16:00", "16:00-17:00"];
-let currentUser = null, editingId = null, preSelectedEquips = [], preSelectedTimes = [];
+let currentUser = null, editingId = null, preSelectedEquips = [], preSelectedTimes = [], editingOwner = null, editingHistory = "";
 
-// TATİL VE ZAMAN KONTROLLERİ
+// TIME UTILS
 function getHoliday(dateStr) {
     const d = new Date(dateStr), day = d.getDay(), monthDay = (d.getMonth() + 1) + "-" + d.getDate();
     if (day === 0 || day === 6) return "Hafta Sonu (Laboratuvar Kapalı)";
@@ -140,17 +165,17 @@ function canProcess(dateStr, type) {
     if (SUPER_ADMINS.includes(currentUser?.email)) return true;
     const target = new Date(dateStr); target.setHours(0,0,0,0);
     const today = new Date(); today.setHours(0,0,0,0);
+    if(target < today && type !== 'booking') return false; // Geçmiş kilitli
     if (type === 'booking') return target > today;
     const limit = new Date(target); limit.setDate(limit.getDate() - 1);
     return today < limit;
 }
 
-// ENVANTER YÖNETİMİ
+// ENVANTER
 async function listAdminEquipments() {
     const lab = document.getElementById("adminLabSelect").value;
     const res = await databases.listDocuments(DB_ID, COLL_EQUIP, [Query.equal('lab', lab)]);
-    const listDiv = document.getElementById("adminEquipList");
-    const saveBtn = document.getElementById("saveEnvanterBtn");
+    const listDiv = document.getElementById("adminEquipList"), saveBtn = document.getElementById("saveEnvanterBtn");
     saveBtn.classList.toggle("hidden", res.total === 0);
     listDiv.innerHTML = res.documents.map(d => `
         <div class="equip-row" data-id="${d.$id}" style="display:flex; justify-content:space-between; align-items:center; padding:10px; border-bottom:1px solid #eee;">
@@ -183,12 +208,9 @@ async function addEquipmentToDB() {
     const lab = document.getElementById("adminLabSelect").value, name = document.getElementById("newEquipName").value.trim();
     if(name) { await databases.createDocument(DB_ID, COLL_EQUIP, ID.unique(), { name, lab, status: 'Kullanılabilir' }); document.getElementById("newEquipName").value = ""; listAdminEquipments(); }
 }
-
 async function deleteDevice(id) { if(confirm("Emin misiniz?")) { await databases.deleteDocument(DB_ID, COLL_EQUIP, id); listAdminEquipments(); } }
 
-// RANDEVU İŞLEMLERİ
-function formatDate(dateStr) { if(!dateStr) return ""; const d = new Date(dateStr); return `${d.getDate().toString().padStart(2, '0')}.${(d.getMonth() + 1).toString().padStart(2, '0')}.${d.getFullYear()}`; }
-
+// REZERVASYON & LOGLAMA
 async function refreshView() {
     const lab = document.getElementById("labSelect").value, dateStr = document.getElementById("resDate").value;
     if(!lab || !dateStr) return;
@@ -198,8 +220,10 @@ async function refreshView() {
     
     const holiday = getHoliday(dateStr);
     const notice = document.getElementById("holidayNotice"), content = document.getElementById("calendarContent");
-    if(!SUPER_ADMINS.includes(currentUser?.email) && holiday) { notice.innerText = `⚠️ ${holiday}`; notice.classList.remove("hidden"); content.classList.add("hidden"); return; }
-    if(!canProcess(dateStr, 'booking')) { notice.innerText = `⚠️ Aynı gün randevu alınamaz.`; notice.classList.remove("hidden"); content.classList.add("hidden"); return; }
+    if(!SUPER_ADMINS.includes(currentUser?.email)) {
+        if(holiday) { notice.innerText = `⚠️ ${holiday}`; notice.classList.remove("hidden"); content.classList.add("hidden"); return; }
+        if(!canProcess(dateStr, 'booking')) { notice.innerText = `⚠️ Aynı gün randevu alınamaz.`; notice.classList.remove("hidden"); content.classList.add("hidden"); return; }
+    }
     notice.classList.add("hidden"); content.classList.remove("hidden");
 
     const allEquips = await databases.listDocuments(DB_ID, COLL_EQUIP, [Query.equal('lab', lab)]);
@@ -230,22 +254,95 @@ async function saveBooking() {
     const equips = Array.from(document.querySelectorAll('input[name="equip"]:checked')).map(e => e.value);
     const times = Array.from(document.querySelectorAll('input[name="timeSlot"]:checked')).map(e => e.value);
     if(equips.length === 0 || times.length === 0) return alert("Seçim yapın!");
+    
     const res = await databases.listDocuments(DB_ID, COLL_APP, [Query.equal('date', date), Query.equal('lab', lab)]);
     for(let dev of equips) for(let t of times) if(res.documents.find(doc => doc.$id !== editingId && doc.time.includes(t) && doc.equipment.includes(dev))) return alert("Çakışma!");
     
-    if(editingId) { await databases.deleteDocument(DB_ID, COLL_APP, editingId); editingId = null; preSelectedEquips = []; preSelectedTimes = []; document.getElementById("editModeNotice").classList.add("hidden"); }
-    await databases.createDocument(DB_ID, COLL_APP, ID.unique(), { name: currentUser.name, lab, date, equipment: equips.join(', '), time: times.join(', ') });
-    alert("Başarılı!"); refreshView(); loadUserData(); if(SUPER_ADMINS.includes(currentUser.email)) loadAdminData();
+    let finalOwner = currentUser.name;
+    let logEntry = `Oluşturuldu: ${currentUser.name} - ${new Date().toLocaleString()}\n`;
+    
+    if(editingId) {
+        // DÜZENLEME DURUMU: ESKİYİ SİL, YENİYİ OLUŞTUR AMA SAHİBİ KORU
+        await databases.deleteDocument(DB_ID, COLL_APP, editingId);
+        finalOwner = editingOwner; // Orijinal sahibi koru
+        const editor = currentUser.name;
+        const oldLogs = editingHistory || "";
+        logEntry = oldLogs + `Düzenlendi: ${editor} tarafından - ${new Date().toLocaleString()}\n`;
+        editingId = null; editingOwner = null; editingHistory = "";
+        document.getElementById("editModeNotice").classList.add("hidden");
+    }
+
+    await databases.createDocument(DB_ID, COLL_APP, ID.unique(), { 
+        name: finalOwner, 
+        lab, date, 
+        equipment: equips.join(', '), 
+        time: times.join(', '),
+        history: logEntry // Logu kaydet
+    });
+    
+    alert("İşlem Başarılı!"); refreshView(); loadUserData(); if(SUPER_ADMINS.includes(currentUser.email)) loadAdminData();
 }
 
-async function editRes(id, lab, date, equipStr, timeStr) {
-    editingId = id; preSelectedEquips = equipStr.split(', '); preSelectedTimes = timeStr.split(', ');
+async function editRes(id, lab, date, equipStr, timeStr, owner, history) {
+    if (!canProcess(date, 'edit')) { alert("Süresi dolmuş randevular düzenlenemez!"); return; }
+    editingId = id; 
+    editingOwner = owner; // Orijinal sahibi hafızaya al
+    editingHistory = history; // Eski logları al
+    preSelectedEquips = equipStr.split(', '); preSelectedTimes = timeStr.split(', ');
+    
     document.getElementById("editModeNotice").classList.remove("hidden");
     document.getElementById("labSelect").value = lab; document.getElementById("resDate").value = date.split('T')[0];
-    await refreshView(); document.getElementById("bookingPage").scrollIntoView({ behavior: 'smooth' });
+    await refreshView(); 
+    document.getElementById("bookingPage").classList.remove("hidden");
+    document.getElementById("bookingPage").scrollIntoView({ behavior: 'smooth' });
 }
 
-// OTURUM VE LİSTELEME
+// LOG GÖRÜNTÜLEME
+function showDetails(name, lab, date, equip, time, history) {
+    document.getElementById("modalDetails").innerHTML = `
+        <b>Öğrenci:</b> ${name}<br>
+        <b>Laboratuvar:</b> ${lab}<br>
+        <b>Tarih:</b> ${formatDate(date)}<br>
+        <b>Cihazlar:</b> ${equip}<br>
+        <b>Saatler:</b> ${time}
+    `;
+    document.getElementById("modalLogs").innerText = history || "Kayıt yok.";
+    document.getElementById("detailModal").classList.remove("hidden");
+}
+function closeModal() { document.getElementById("detailModal").classList.add("hidden"); }
+
+// LİSTELEME
+function formatDate(dateStr) { if(!dateStr) return ""; const d = new Date(dateStr); return `${d.getDate().toString().padStart(2, '0')}.${(d.getMonth() + 1).toString().padStart(2, '0')}.${d.getFullYear()}`; }
+
+async function loadAdminData() {
+    const res = await databases.listDocuments(DB_ID, COLL_APP, [Query.orderDesc('$createdAt')]);
+    document.getElementById("adminBody").innerHTML = res.documents.map(doc => {
+        const past = !canProcess(doc.date, 'edit');
+        // Log için verileri güvenli şekilde stringe çeviriyoruz
+        return `<tr>
+            <td>${doc.name}</td>
+            <td>${doc.equipment}</td>
+            <td>${formatDate(doc.date)} / ${doc.time}</td>
+            <td>
+                <button class="info-btn" onclick="showDetails('${doc.name}', '${doc.lab}', '${doc.date}', '${doc.equipment}', '${doc.time}', \`${doc.history || ''}\`)">i</button>
+                <button class="edit-btn" ${past ? 'disabled' : ''} onclick="editRes('${doc.$id}', '${doc.lab}', '${doc.date}', '${doc.equipment}', '${doc.time}', '${doc.name}', \`${doc.history || ''}\`)">${past ? '-' : 'Düz.'}</button>
+                <button class="delete-btn" ${past ? 'disabled' : ''} onclick="deleteRes('${doc.$id}', true)">${past ? '-' : 'Sil'}</button>
+            </td>
+        </tr>`;
+    }).join('');
+}
+
+async function loadUserData() {
+    const res = await databases.listDocuments(DB_ID, COLL_APP, [Query.equal('name', currentUser.name), Query.orderDesc('$createdAt')]);
+    document.getElementById("userBody").innerHTML = res.documents.map(doc => {
+        const past = !canProcess(doc.date, 'edit');
+        return `<tr><td><b>${doc.lab}</b><br>${doc.equipment}</td><td>${formatDate(doc.date)}<br>${doc.time}</td>
+            <td><button class="edit-btn" ${past ? 'disabled' : ''} onclick="editRes('${doc.$id}', '${doc.lab}', '${doc.date}', '${doc.equipment}', '${doc.time}', '${doc.name}', \`${doc.history || ''}\`)">${past ? '-' : 'Düz.'}</button>
+            <button class="delete-btn" ${past ? 'disabled' : ''} onclick="deleteRes('${doc.$id}', false)">${past ? '-' : 'İptal'}</button></td></tr>`;
+    }).join('');
+}
+
+async function deleteRes(id, isAdmin) { if(!confirm("Silinsin mi?")) return; await databases.deleteDocument(DB_ID, COLL_APP, id); isAdmin ? loadAdminData() : loadUserData(); refreshView(); }
 async function checkSession() {
     try {
         currentUser = await account.get();
@@ -256,10 +353,6 @@ async function checkSession() {
         loadUserData();
     } catch (e) {}
 }
-
-async function loadAdminData() { const res = await databases.listDocuments(DB_ID, COLL_APP, [Query.orderDesc('$createdAt')]); document.getElementById("adminBody").innerHTML = res.documents.map(doc => `<tr><td>${doc.name}</td><td>${doc.equipment}</td><td>${formatDate(doc.date)} / ${doc.time}</td><td><button class="edit-btn" onclick="editRes('${doc.$id}', '${doc.lab}', '${doc.date}', '${doc.equipment}', '${doc.time}')">Düzenle</button><button class="delete-btn" onclick="deleteRes('${doc.$id}', true)">Sil</button></td></tr>`).join(''); }
-async function loadUserData() { const res = await databases.listDocuments(DB_ID, COLL_APP, [Query.equal('name', currentUser.name), Query.orderDesc('$createdAt')]); document.getElementById("userBody").innerHTML = res.documents.map(doc => { const allowed = canProcess(doc.date, 'cancel'); return `<tr><td><b>${doc.lab}</b><br>${doc.equipment}</td><td>${formatDate(doc.date)}<br>${doc.time}</td><td><button class="edit-btn" ${allowed ? '' : 'disabled'} onclick="editRes('${doc.$id}', '${doc.lab}', '${doc.date}', '${doc.equipment}', '${doc.time}')">Düzenle</button><button class="delete-btn" ${allowed ? '' : 'disabled'} onclick="deleteRes('${doc.$id}', false)">İptal</button></td></tr>`; }).join(''); }
-async function deleteRes(id, isAdmin) { if(!confirm("Emin misiniz?")) return; await databases.deleteDocument(DB_ID, COLL_APP, id); isAdmin ? loadAdminData() : loadUserData(); refreshView(); }
 async function handleLogin() { const email = document.getElementById("loginId").value.trim() + document.getElementById("loginDomain").value; try { await account.createEmailSession(email, document.getElementById("loginPass").value); location.reload(); } catch (e) { alert(e.message); } }
 async function handleRegister() { const email = document.getElementById("regId").value.trim() + document.getElementById("regDomain").value; try { await account.create(ID.unique(), email, document.getElementById("regPass").value, document.getElementById("regFullName").value); await account.createEmailSession(email, document.getElementById("regPass").value); await account.createVerification("https://oktaykemah.github.io/lab-randevu/"); alert("Onay maili gönderildi."); await account.deleteSession('current'); switchPage('loginPage'); } catch (e) { alert(e.message); } }
 async function loadAdminCalendar() { const lab = document.getElementById("adminViewLab").value, date = document.getElementById("adminViewDate").value; const eqs = await databases.listDocuments(DB_ID, COLL_EQUIP, [Query.equal('lab', lab)]); await renderCalendar(lab, date, "adminCalHead", "adminCalBody", true, eqs.documents); }
