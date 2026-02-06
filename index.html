@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>IKC Lab Booking - v1.5.1</title>
+  <title>IKC Lab Booking - v1.5.2</title>
   <script src="https://cdn.jsdelivr.net/npm/appwrite@13.0.1"></script>
   <style>
     :root { --primary: #0066cc; --admin: #2c3e50; --danger: #e74c3c; --success: #27ae60; --warning: #f39c12; --occupied-other: #fdeaea; --occupied-me: #e3f2fd; --holiday: #fff3e0; }
@@ -38,25 +38,26 @@
     <div id="loginPage">
         <h2>IKC Lab Randevu</h2>
         <select id="loginDomain"><option value="@ogr.ikc.edu.tr">Öğrenci</option><option value="@ikc.edu.tr">Akademik</option></select>
-        <input id="loginId" type="text" placeholder="ID">
+        <input id="loginId" type="text" placeholder="ID (Örn: 160411006)">
         <input id="loginPass" type="password" placeholder="Şifre">
         <button class="main-btn" onclick="handleLogin()">Giriş Yap</button>
-        <div style="text-align: center; margin-top: 15px;"><a href="#" onclick="switchPage('registerPage')">Yeni Hesap Oluştur</a></div>
+        <div style="text-align: center; margin-top: 15px;"><a href="#" onclick="switchPage('registerPage')" style="color: var(--primary); text-decoration: none; font-size: 13px;">Yeni Hesap Oluştur</a></div>
     </div>
 
     <div id="registerPage" class="hidden">
         <h2>Yeni Kayıt</h2>
         <select id="regDomain"><option value="@ogr.ikc.edu.tr">Öğrenci</option><option value="@ikc.edu.tr">Akademik</option></select>
-        <input id="regId" type="text" placeholder="ID"><input id="regFullName" type="text" placeholder="Ad Soyad"><input id="regPass" type="password" placeholder="Şifre">
+        <input id="regId" type="text" placeholder="ID / Öğrenci No"><input id="regFullName" type="text" placeholder="Ad Soyad"><input id="regPass" type="password" placeholder="Şifre">
         <button class="main-btn" onclick="handleRegister()">Kayıt Ol</button>
-        <button onclick="switchPage('loginPage')" style="background:none; border:none; color:#666;">Geri Dön</button>
+        <button onclick="switchPage('loginPage')" style="background:none; border:none; color:#666; cursor:pointer;">Geri Dön</button>
     </div>
 
     <div id="bookingPage" class="hidden">
         <h2 id="userGreet">Hoş Geldiniz</h2>
-        <div id="editModeNotice" class="hidden" style="background: #fff3cd; color: #856404; padding: 10px; border-radius: 8px; margin-bottom: 15px; font-weight: bold; border: 1px solid #ffeeba;">
-            ⚠️ Randevu Düzenleme Modundasınız. Lütfen yeni bilgileri seçip kaydedin.
-        </div>
+        <div id="adminLink" class="hidden" style="margin-bottom: 15px;"><button onclick="switchPage('adminPage')" style="background: var(--admin); color: white; padding: 10px; border-radius: 8px; border: none; cursor: pointer; font-weight: bold;">⚠️ Admin Paneline Git</button></div>
+        
+        <div id="editModeNotice" class="hidden" style="background: #fff3cd; color: #856404; padding: 10px; border-radius: 8px; margin-bottom: 15px; font-weight: bold; border: 1px solid #ffeeba;">⚠️ Randevu Düzenleme Modundasınız.</div>
+        
         <div style="background: #eef6ff; padding: 15px; border-radius: 10px; margin-bottom: 20px;">
             <label>1. Laboratuvar ve Tarih Seçimi</label>
             <div style="display:flex; gap:10px;">
@@ -90,8 +91,9 @@
     </div>
 
     <div id="adminPage" class="hidden admin-mode">
-        <h2>Admin Paneli</h2>
-        <div style="background: #f0f4f8; padding: 15px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #d1d9e0;">
+        <h2>Süper Admin Paneli</h2>
+        <button onclick="switchPage('bookingPage')" style="background: var(--primary); color: white; border: none; padding: 10px; border-radius: 8px; cursor: pointer;">Randevu Paneline Dön</button>
+        <div style="background: #f0f4f8; padding: 15px; border-radius: 10px; margin-top: 20px; border: 1px solid #d1d9e0;">
             <h3>İzleme Tablosu</h3>
             <div style="display:flex; gap:10px;">
                 <select id="adminViewLab" onchange="loadAdminCalendar()" style="flex:2;">
@@ -103,9 +105,15 @@
             </div>
             <div class="calendar-container"><table class="cal-table"><thead id="adminCalHead"></thead><tbody id="adminCalBody"></tbody></table></div>
         </div>
-        <h3>Tüm Randevular</h3>
-        <table class="res-table"><thead><tr><th>Öğrenci</th><th>Cihaz</th><th>Zaman</th><th>İşlem</th></tr></thead><tbody id="adminBody"></tbody></table>
-        <button onclick="logout()" style="background:#666; color:white; margin-top:20px;">Çıkış Yap</button>
+        <div style="background: #f8f9fa; padding: 15px; border-radius: 10px; margin-top: 20px; border: 1px solid #ddd;">
+            <label>Yeni Cihaz Ekle</label>
+            <select id="adminLabSelect"><option value="Malzeme Karakterizasyon Lab.">Malzeme Karakterizasyon Lab.</option><option value="Numune Hazırlama Lab.">Numune Hazırlama Lab.</option><option value="Üretim Lab.">Üretim Lab.</option></select>
+            <input id="newEquipName" type="text" placeholder="Cihaz Adı">
+            <button class="main-btn" onclick="addEquipmentToDB()" style="background: var(--admin);">Ekle</button>
+        </div>
+        <h3>Tüm Sistem Randevuları</h3>
+        <table class="res-table"><thead><tr><th>Kullanıcı</th><th>Cihaz</th><th>Zaman</th><th>İşlem</th></tr></thead><tbody id="adminBody"></tbody></table>
+        <button onclick="logout()" style="background:#666; color:white; margin-top:20px;">Güvenli Çıkış</button>
     </div>
 </div>
 
@@ -119,12 +127,12 @@ const DB_ID = '6981c42a00202c6cdf0e';
 const COLL_APP = 'appointments';
 const COLL_EQUIP = 'equipments';
 const REDIRECT_URL = "https://oktaykemah.github.io/lab-randevu/";
+const SUPER_ADMIN_MAIL = "oktay.kemah@ikc.edu.tr"; // Sadece bu mail admin panelini görebilir
 
 const hours = ["09:00-10:00", "10:00-11:00", "11:00-12:00", "12:00-13:00", "13:00-14:00", "14:00-15:00", "15:00-16:00", "16:00-17:00"];
 let currentUser = null;
-let editingId = null; // Düzenleme takibi için
+let editingId = null;
 
-// TATİL VE ZAMAN KONTROLLERİ (v1.5 Koruması)
 function getHoliday(dateStr) {
     const date = new Date(dateStr);
     const day = date.getDay();
@@ -151,22 +159,12 @@ async function refreshView() {
     const lab = document.getElementById("labSelect").value;
     const dateStr = document.getElementById("resDate").value;
     if(!lab || !dateStr) return;
-
     const notice = document.getElementById("holidayNotice");
     const content = document.getElementById("calendarContent");
     document.getElementById("statusSection").classList.remove("hidden");
-
     const holiday = getHoliday(dateStr);
-    if(holiday) {
-        notice.innerText = `⚠️ ${holiday} nedeniyle kapalıdır.`;
-        notice.classList.remove("hidden"); content.classList.add("hidden"); return;
-    }
-
-    if(!canProcess(dateStr, 'booking')) {
-        notice.innerText = `⚠️ Aynı gün için işlem yapılamaz.`;
-        notice.classList.remove("hidden"); content.classList.add("hidden"); return;
-    }
-
+    if(holiday) { notice.innerText = `⚠️ ${holiday} nedeniyle kapalıdır.`; notice.classList.remove("hidden"); content.classList.add("hidden"); return; }
+    if(!canProcess(dateStr, 'booking')) { notice.innerText = `⚠️ Aynı gün için işlem yapılamaz.`; notice.classList.remove("hidden"); content.classList.add("hidden"); return; }
     notice.classList.add("hidden"); content.classList.remove("hidden");
     const equips = await databases.listDocuments(DB_ID, COLL_EQUIP, [Query.equal('lab', lab)]);
     document.getElementById("equipmentGrid").innerHTML = equips.documents.map(d => `<label class="opt-item"><input type="checkbox" name="equip" value="${d.name}">${d.name}</label>`).join('');
@@ -174,7 +172,6 @@ async function refreshView() {
     await renderCalendar(lab, dateStr, "calHead", "calBody", false);
 }
 
-// TAKVİM ÇİZİMİ (Gizlilik Filtreli)
 async function renderCalendar(lab, date, headId, bodyId, isAdmin) {
     const equips = await databases.listDocuments(DB_ID, COLL_EQUIP, [Query.equal('lab', lab)]);
     const apps = await databases.listDocuments(DB_ID, COLL_APP, [Query.equal('lab', lab), Query.equal('date', date)]);
@@ -195,50 +192,52 @@ async function renderCalendar(lab, date, headId, bodyId, isAdmin) {
 async function saveBooking() {
     const lab = document.getElementById("labSelect").value;
     const date = document.getElementById("resDate").value;
-    if(!canProcess(date, 'booking')) { alert("Hata: Bugün için randevu alınamaz!"); return; }
-    
     const equips = Array.from(document.querySelectorAll('input[name="equip"]:checked')).map(e => e.value);
     const times = Array.from(document.querySelectorAll('input[name="timeSlot"]:checked')).map(e => e.value);
     if(equips.length === 0 || times.length === 0) { alert("Eksik seçim!"); return; }
-
     const res = await databases.listDocuments(DB_ID, COLL_APP, [Query.equal('date', date), Query.equal('lab', lab)]);
     for(let dev of equips) {
         for(let t of times) {
             if(res.documents.find(doc => doc.time.includes(t) && doc.equipment.includes(dev))) { alert("Dolu!"); return; }
         }
     }
-
-    // DÜZENLEME VARSA ESKİYİ SİL
     if(editingId) { await databases.deleteDocument(DB_ID, COLL_APP, editingId); editingId = null; document.getElementById("editModeNotice").classList.add("hidden"); }
-
     await databases.createDocument(DB_ID, COLL_APP, ID.unique(), { name: currentUser.name, lab, date, equipment: equips.join(', '), time: times.join(', ') });
-    alert("Onaylandı!"); refreshView(); loadUserData();
+    alert("Başarılı!"); refreshView(); loadUserData();
 }
 
-async function editRes(id, lab, date, equip, time) {
-    if(!confirm("Düzenleme moduna geçilecek. Seçimlerinizi yaptıktan sonra tekrar kaydetmeniz gerekecek. Onaylıyor musunuz?")) return;
-    editingId = id;
-    document.getElementById("editModeNotice").classList.remove("hidden");
-    document.getElementById("labSelect").value = lab;
-    document.getElementById("resDate").value = date;
-    await refreshView();
-    // Otomatik kaydırma
-    document.getElementById("bookingPage").scrollIntoView({ behavior: 'smooth' });
+async function editRes(id, lab, date) {
+    if(!confirm("Düzenleme moduna geçilecek. Onaylıyor musunuz?")) return;
+    editingId = id; document.getElementById("editModeNotice").classList.remove("hidden");
+    document.getElementById("labSelect").value = lab; document.getElementById("resDate").value = date;
+    await refreshView(); document.getElementById("bookingPage").scrollIntoView({ behavior: 'smooth' });
 }
 
 async function loadUserData() {
     const res = await databases.listDocuments(DB_ID, COLL_APP, [Query.equal('name', currentUser.name), Query.orderDesc('$createdAt')]);
     document.getElementById("userBody").innerHTML = res.documents.map(doc => {
         const allowed = canProcess(doc.date, 'edit');
-        return `<tr>
-            <td><b>${doc.lab}</b><br>${doc.equipment}</td>
-            <td>${doc.date}<br>${doc.time}</td>
-            <td>
-                <button class="edit-btn" ${allowed ? '' : 'disabled'} onclick="editRes('${doc.$id}', '${doc.lab}', '${doc.date}', '${doc.equipment}', '${doc.time}')">${allowed ? 'Düzenle' : '-'}</button>
-                <button class="delete-btn" ${allowed ? '' : 'disabled'} onclick="deleteRes('${doc.$id}', false)">${allowed ? 'İptal' : 'Kapandı'}</button>
-            </td>
-        </tr>`;
+        return `<tr><td><b>${doc.lab}</b><br>${doc.equipment}</td><td>${doc.date}<br>${doc.time}</td>
+            <td><button class="edit-btn" ${allowed ? '' : 'disabled'} onclick="editRes('${doc.$id}', '${doc.lab}', '${doc.date}')">${allowed ? 'Düzenle' : '-'}</button>
+            <button class="delete-btn" ${allowed ? '' : 'disabled'} onclick="deleteRes('${doc.$id}', false)">${allowed ? 'İptal' : 'Kapandı'}</button></td></tr>`;
     }).join('');
+}
+
+async function checkSession() {
+    try {
+        currentUser = await account.get();
+        if(!currentUser.emailVerification) { await account.deleteSession('current'); return; }
+        document.getElementById("loginPage").classList.add("hidden");
+        document.getElementById("bookingPage").classList.remove("hidden");
+        document.getElementById("userGreet").innerText = "Merhaba, " + currentUser.name;
+        
+        // SÜPER ADMIN KONTROLÜ
+        if(currentUser.email === SUPER_ADMIN_MAIL) {
+            document.getElementById("adminLink").classList.remove("hidden");
+            loadAdminData();
+        }
+        loadUserData();
+    } catch (e) {}
 }
 
 async function loadAdminData() {
@@ -252,23 +251,12 @@ async function handleRegister() { const email = document.getElementById("regId")
 async function loadAdminCalendar() { const lab = document.getElementById("adminViewLab").value; const date = document.getElementById("adminViewDate").value; await renderCalendar(lab, date, "adminCalHead", "adminCalBody", true); }
 function switchPage(id) { document.querySelectorAll('.box > div').forEach(d => d.classList.add('hidden')); document.getElementById(id).classList.remove('hidden'); }
 async function logout() { await account.deleteSession('current'); location.reload(); }
+async function addEquipmentToDB() { const lab = document.getElementById("adminLabSelect").value; const name = document.getElementById("newEquipName").value.trim(); if(name) { await databases.createDocument(DB_ID, COLL_EQUIP, ID.unique(), { name, lab }); alert("Eklendi!"); document.getElementById("newEquipName").value = ""; loadAdminData(); loadAdminCalendar(); } }
 
 window.onload = async () => {
     const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('userId')) { await account.updateVerification(urlParams.get('userId'), urlParams.get('secret')); alert("Onay Başarılı!"); window.location.href = REDIRECT_URL; }
-    try {
-        currentUser = await account.get();
-        if(!currentUser.emailVerification) { await account.deleteSession('current'); return; }
-        document.getElementById("loginPage").classList.add("hidden");
-        if(currentUser.email.endsWith("@ikc.edu.tr")) { 
-            document.getElementById("adminPage").classList.remove("hidden"); 
-            document.getElementById("adminViewDate").valueAsDate = new Date();
-            loadAdminCalendar(); loadAdminData(); 
-        } else { 
-            document.getElementById("bookingPage").classList.remove("hidden"); 
-            document.getElementById("userGreet").innerText = "Merhaba, " + currentUser.name; loadUserData(); 
-        }
-    } catch (e) {}
+    if (urlParams.get('userId')) { try { await account.updateVerification(urlParams.get('userId'), urlParams.get('secret')); alert("Onay Başarılı!"); window.location.href = REDIRECT_URL; } catch(e){ alert("Hata"); } }
+    checkSession();
 };
 </script>
 </body>
