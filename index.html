@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>IKC Lab Booking - v1.5.0</title>
+  <title>IKC Lab Booking - v1.5.1</title>
   <script src="https://cdn.jsdelivr.net/npm/appwrite@13.0.1"></script>
   <style>
-    :root { --primary: #0066cc; --admin: #2c3e50; --danger: #e74c3c; --success: #27ae60; --occupied-other: #fdeaea; --occupied-me: #e3f2fd; --holiday: #fff3e0; }
+    :root { --primary: #0066cc; --admin: #2c3e50; --danger: #e74c3c; --success: #27ae60; --warning: #f39c12; --occupied-other: #fdeaea; --occupied-me: #e3f2fd; --holiday: #fff3e0; }
     body { font-family: 'Segoe UI', sans-serif; background: #f4f7f9; margin: 0; padding: 20px; display: flex; justify-content: center; min-height: 100vh; }
     .box { background: #fff; padding: 25px; width: 100%; max-width: 1000px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); position: relative; }
     .hidden { display: none; }
@@ -25,9 +25,9 @@
     .slot-free { color: var(--success); font-weight: bold; }
     .holiday-msg { background: var(--holiday); color: #e65100; padding: 15px; border-radius: 8px; text-align: center; font-weight: bold; margin-top: 10px; border: 1px solid #ffe0b2; }
     .main-btn { background: var(--primary); color: white; border: none; font-weight: bold; cursor: pointer; transition: 0.3s; margin-top: 20px; }
-    .admin-mode { border-top: 8px solid var(--admin); }
-    .delete-btn { background: var(--danger); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; width: auto; font-size: 12px; }
-    .delete-btn:disabled { background: #ccc; cursor: not-allowed; }
+    .edit-btn { background: var(--warning); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; margin-right: 5px; }
+    .delete-btn { background: var(--danger); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; }
+    button:disabled { background: #ccc !important; cursor: not-allowed; }
     table.res-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
     .res-table th, .res-table td { text-align: left; padding: 12px; border-bottom: 1px solid #eee; font-size: 13px; }
   </style>
@@ -54,6 +54,9 @@
 
     <div id="bookingPage" class="hidden">
         <h2 id="userGreet">Hoş Geldiniz</h2>
+        <div id="editModeNotice" class="hidden" style="background: #fff3cd; color: #856404; padding: 10px; border-radius: 8px; margin-bottom: 15px; font-weight: bold; border: 1px solid #ffeeba;">
+            ⚠️ Randevu Düzenleme Modundasınız. Lütfen yeni bilgileri seçip kaydedin.
+        </div>
         <div style="background: #eef6ff; padding: 15px; border-radius: 10px; margin-bottom: 20px;">
             <label>1. Laboratuvar ve Tarih Seçimi</label>
             <div style="display:flex; gap:10px;">
@@ -75,13 +78,12 @@
                 <label style="margin-top:25px;">2. Cihaz ve Saat Seçimi</label>
                 <div id="equipmentGrid" class="grid-options"></div>
                 <div id="timeGrid" class="grid-options"></div>
-                <button class="main-btn" onclick="saveBooking()">Randevuyu Kaydet</button>
+                <button id="saveBtn" class="main-btn" onclick="saveBooking()">Randevuyu Kaydet</button>
             </div>
         </div>
         
         <div class="table-section">
             <h3>Randevularım</h3>
-            <p style="font-size:11px; color:#888;">* Randevular başlangıç tarihinden en az 1 gün önce iptal edilebilir.</p>
             <table class="res-table"><thead><tr><th>Lab / Cihaz</th><th>Zaman</th><th>İşlem</th></tr></thead><tbody id="userBody"></tbody></table>
         </div>
         <button onclick="logout()" style="background:#666; color:white; margin-top:20px;">Çıkış Yap</button>
@@ -89,7 +91,7 @@
 
     <div id="adminPage" class="hidden admin-mode">
         <h2>Admin Paneli</h2>
-        <div style="background: #f0f4f8; padding: 20px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #d1d9e0;">
+        <div style="background: #f0f4f8; padding: 15px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #d1d9e0;">
             <h3>İzleme Tablosu</h3>
             <div style="display:flex; gap:10px;">
                 <select id="adminViewLab" onchange="loadAdminCalendar()" style="flex:2;">
@@ -101,7 +103,7 @@
             </div>
             <div class="calendar-container"><table class="cal-table"><thead id="adminCalHead"></thead><tbody id="adminCalBody"></tbody></table></div>
         </div>
-        <h3>Tüm Randevular (Kısıtlamasız Silebilirsiniz)</h3>
+        <h3>Tüm Randevular</h3>
         <table class="res-table"><thead><tr><th>Öğrenci</th><th>Cihaz</th><th>Zaman</th><th>İşlem</th></tr></thead><tbody id="adminBody"></tbody></table>
         <button onclick="logout()" style="background:#666; color:white; margin-top:20px;">Çıkış Yap</button>
     </div>
@@ -120,8 +122,9 @@ const REDIRECT_URL = "https://oktaykemah.github.io/lab-randevu/";
 
 const hours = ["09:00-10:00", "10:00-11:00", "11:00-12:00", "12:00-13:00", "13:00-14:00", "14:00-15:00", "15:00-16:00", "16:00-17:00"];
 let currentUser = null;
+let editingId = null; // Düzenleme takibi için
 
-// TÜRKİYE RESMİ TATİL KONTROLÜ
+// TATİL VE ZAMAN KONTROLLERİ (v1.5 Koruması)
 function getHoliday(dateStr) {
     const date = new Date(dateStr);
     const day = date.getDay();
@@ -129,26 +132,16 @@ function getHoliday(dateStr) {
     if (day === 0) return "Pazar (Kapalı)";
     if (day === 6) return "Cumartesi (Kapalı)";
     const holidays = {"1-1":"Yılbaşı","4-23":"23 Nisan","5-1":"1 Mayıs","5-19":"19 Mayıs","7-15":"15 Temmuz","8-30":"30 Ağustos","10-29":"29 Ekim"};
-    const religious2026 = {"3-19":"Bayram Arifesi","3-20":"Ramazan Bayramı","3-21":"Ramazan Bayramı","3-22":"Ramazan Bayramı","5-26":"Kurban Arifesi","5-27":"Kurban Bayramı","5-28":"Kurban Bayramı","5-29":"Kurban Bayramı","5-30":"Kurban Bayramı"};
+    const religious2026 = {"3-19":"Arife","3-20":"Ramazan","3-21":"Ramazan","3-22":"Ramazan","5-26":"Arife","5-27":"Kurban","5-28":"Kurban","5-29":"Kurban","5-30":"Kurban"};
     return holidays[monthDay] || religious2026[monthDay] || null;
 }
 
-// ZAMAN KISITLAMA KONTROLÜ
 function canProcess(targetDateStr, type) {
-    const target = new Date(targetDateStr);
-    target.setHours(0,0,0,0);
-    const today = new Date();
-    today.setHours(0,0,0,0);
-
-    if (type === 'booking') {
-        // Bugün veya geçmişe randevu alınamaz
-        return target > today;
-    }
-    if (type === 'cancel') {
-        // Hedef tarihten bir önceki günün sonuna kadar iptal edilebilir.
-        // target - 1 day >= today
-        const limit = new Date(target);
-        limit.setDate(limit.getDate() - 1);
+    const target = new Date(targetDateStr); target.setHours(0,0,0,0);
+    const today = new Date(); today.setHours(0,0,0,0);
+    if (type === 'booking') return target > today;
+    if (type === 'cancel' || type === 'edit') {
+        const limit = new Date(target); limit.setDate(limit.getDate() - 1);
         return today < limit;
     }
     return true;
@@ -163,16 +156,14 @@ async function refreshView() {
     const content = document.getElementById("calendarContent");
     document.getElementById("statusSection").classList.remove("hidden");
 
-    // 1. Tatil Kontrolü
     const holiday = getHoliday(dateStr);
     if(holiday) {
-        notice.innerText = `⚠️ ${holiday} nedeniyle laboratuvar kapalıdır.`;
+        notice.innerText = `⚠️ ${holiday} nedeniyle kapalıdır.`;
         notice.classList.remove("hidden"); content.classList.add("hidden"); return;
     }
 
-    // 2. Aynı Gün Kısıtlaması Kontrolü
     if(!canProcess(dateStr, 'booking')) {
-        notice.innerText = `⚠️ Aynı gün için randevu alınamaz. Lütfen en az bir gün sonrasını seçin.`;
+        notice.innerText = `⚠️ Aynı gün için işlem yapılamaz.`;
         notice.classList.remove("hidden"); content.classList.add("hidden"); return;
     }
 
@@ -183,6 +174,7 @@ async function refreshView() {
     await renderCalendar(lab, dateStr, "calHead", "calBody", false);
 }
 
+// TAKVİM ÇİZİMİ (Gizlilik Filtreli)
 async function renderCalendar(lab, date, headId, bodyId, isAdmin) {
     const equips = await databases.listDocuments(DB_ID, COLL_EQUIP, [Query.equal('lab', lab)]);
     const apps = await databases.listDocuments(DB_ID, COLL_APP, [Query.equal('lab', lab), Query.equal('date', date)]);
@@ -215,18 +207,36 @@ async function saveBooking() {
             if(res.documents.find(doc => doc.time.includes(t) && doc.equipment.includes(dev))) { alert("Dolu!"); return; }
         }
     }
+
+    // DÜZENLEME VARSA ESKİYİ SİL
+    if(editingId) { await databases.deleteDocument(DB_ID, COLL_APP, editingId); editingId = null; document.getElementById("editModeNotice").classList.add("hidden"); }
+
     await databases.createDocument(DB_ID, COLL_APP, ID.unique(), { name: currentUser.name, lab, date, equipment: equips.join(', '), time: times.join(', ') });
     alert("Onaylandı!"); refreshView(); loadUserData();
+}
+
+async function editRes(id, lab, date, equip, time) {
+    if(!confirm("Düzenleme moduna geçilecek. Seçimlerinizi yaptıktan sonra tekrar kaydetmeniz gerekecek. Onaylıyor musunuz?")) return;
+    editingId = id;
+    document.getElementById("editModeNotice").classList.remove("hidden");
+    document.getElementById("labSelect").value = lab;
+    document.getElementById("resDate").value = date;
+    await refreshView();
+    // Otomatik kaydırma
+    document.getElementById("bookingPage").scrollIntoView({ behavior: 'smooth' });
 }
 
 async function loadUserData() {
     const res = await databases.listDocuments(DB_ID, COLL_APP, [Query.equal('name', currentUser.name), Query.orderDesc('$createdAt')]);
     document.getElementById("userBody").innerHTML = res.documents.map(doc => {
-        const cancelPossible = canProcess(doc.date, 'cancel');
+        const allowed = canProcess(doc.date, 'edit');
         return `<tr>
             <td><b>${doc.lab}</b><br>${doc.equipment}</td>
             <td>${doc.date}<br>${doc.time}</td>
-            <td><button class="delete-btn" ${cancelPossible ? '' : 'disabled'} onclick="deleteRes('${doc.$id}', false)">${cancelPossible ? 'İptal' : 'Süre Doldu'}</button></td>
+            <td>
+                <button class="edit-btn" ${allowed ? '' : 'disabled'} onclick="editRes('${doc.$id}', '${doc.lab}', '${doc.date}', '${doc.equipment}', '${doc.time}')">${allowed ? 'Düzenle' : '-'}</button>
+                <button class="delete-btn" ${allowed ? '' : 'disabled'} onclick="deleteRes('${doc.$id}', false)">${allowed ? 'İptal' : 'Kapandı'}</button>
+            </td>
         </tr>`;
     }).join('');
 }
@@ -236,13 +246,16 @@ async function loadAdminData() {
     document.getElementById("adminBody").innerHTML = res.documents.map(doc => `<tr><td>${doc.name}</td><td>${doc.equipment}</td><td>${doc.date} / ${doc.time}</td><td><button class="delete-btn" onclick="deleteRes('${doc.$id}', true)">Sil</button></td></tr>`).join('');
 }
 
-async function deleteRes(id, isAdmin) {
-    if(!confirm("Bu randevuyu silmek istediğinize emin misiniz?")) return;
-    await databases.deleteDocument(DB_ID, COLL_APP, id);
-    isAdmin ? loadAdminData() : loadUserData(); refreshView();
-}
+async function deleteRes(id, isAdmin) { if(!confirm("Emin misiniz?")) return; await databases.deleteDocument(DB_ID, COLL_APP, id); isAdmin ? loadAdminData() : loadUserData(); refreshView(); }
+async function handleLogin() { const email = document.getElementById("loginId").value.trim() + document.getElementById("loginDomain").value; try { await account.createEmailSession(email, document.getElementById("loginPass").value); location.reload(); } catch (e) { alert(e.message); } }
+async function handleRegister() { const email = document.getElementById("regId").value.trim() + document.getElementById("regDomain").value; try { await account.create(ID.unique(), email, document.getElementById("regPass").value, document.getElementById("regFullName").value); await account.createEmailSession(email, document.getElementById("regPass").value); await account.createVerification(REDIRECT_URL); alert("Mail gönderildi."); await account.deleteSession('current'); switchPage('loginPage'); } catch (e) { alert(e.message); } }
+async function loadAdminCalendar() { const lab = document.getElementById("adminViewLab").value; const date = document.getElementById("adminViewDate").value; await renderCalendar(lab, date, "adminCalHead", "adminCalBody", true); }
+function switchPage(id) { document.querySelectorAll('.box > div').forEach(d => d.classList.add('hidden')); document.getElementById(id).classList.remove('hidden'); }
+async function logout() { await account.deleteSession('current'); location.reload(); }
 
-async function checkSession() {
+window.onload = async () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('userId')) { await account.updateVerification(urlParams.get('userId'), urlParams.get('secret')); alert("Onay Başarılı!"); window.location.href = REDIRECT_URL; }
     try {
         currentUser = await account.get();
         if(!currentUser.emailVerification) { await account.deleteSession('current'); return; }
@@ -256,19 +269,6 @@ async function checkSession() {
             document.getElementById("userGreet").innerText = "Merhaba, " + currentUser.name; loadUserData(); 
         }
     } catch (e) {}
-}
-
-async function loadAdminCalendar() { const lab = document.getElementById("adminViewLab").value; const date = document.getElementById("adminViewDate").value; await renderCalendar(lab, date, "adminCalHead", "adminCalBody", true); }
-async function handleLogin() { const email = document.getElementById("loginId").value.trim() + document.getElementById("loginDomain").value; try { await account.createEmailSession(email, document.getElementById("loginPass").value); location.reload(); } catch (e) { alert(e.message); } }
-async function handleRegister() { const email = document.getElementById("regId").value.trim() + document.getElementById("regDomain").value; try { await account.create(ID.unique(), email, document.getElementById("regPass").value, document.getElementById("regFullName").value); await account.createEmailSession(email, document.getElementById("regPass").value); await account.createVerification(REDIRECT_URL); alert("Mail gönderildi."); await account.deleteSession('current'); switchPage('loginPage'); } catch (e) { alert(e.message); } }
-async function addEquipmentToDB() { const lab = document.getElementById("adminLabSelect").value; const name = document.getElementById("newEquipName").value.trim(); if(name) { await databases.createDocument(DB_ID, COLL_EQUIP, ID.unique(), { name, lab }); alert("Eklendi!"); document.getElementById("newEquipName").value = ""; loadAdminData(); loadAdminCalendar(); } }
-function switchPage(id) { document.getElementById("loginPage").classList.add("hidden"); document.getElementById("registerPage").classList.add("hidden"); document.getElementById(id).classList.remove("hidden"); }
-async function logout() { await account.deleteSession('current'); location.reload(); }
-
-window.onload = async () => {
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('userId')) { try { await account.updateVerification(urlParams.get('userId'), urlParams.get('secret')); alert("Onay Başarılı!"); window.location.href = REDIRECT_URL; } catch(e){ alert("Onay hatası."); } }
-    checkSession();
 };
 </script>
 </body>
