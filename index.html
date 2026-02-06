@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>IKC Lab Booking - v1.5.2</title>
+  <title>IKC Lab Booking - v1.5.3</title>
   <script src="https://cdn.jsdelivr.net/npm/appwrite@13.0.1"></script>
   <style>
     :root { --primary: #0066cc; --admin: #2c3e50; --danger: #e74c3c; --success: #27ae60; --warning: #f39c12; --occupied-other: #fdeaea; --occupied-me: #e3f2fd; --holiday: #fff3e0; }
     body { font-family: 'Segoe UI', sans-serif; background: #f4f7f9; margin: 0; padding: 20px; display: flex; justify-content: center; min-height: 100vh; }
-    .box { background: #fff; padding: 25px; width: 100%; max-width: 1000px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); position: relative; }
+    .box { background: #fff; padding: 25px; width: 100%; max-width: 1100px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); position: relative; }
     .hidden { display: none; }
     h2, h3 { color: #333; border-bottom: 2px solid #eee; padding-bottom: 10px; margin-top: 0; }
     label { font-weight: bold; font-size: 13px; display: block; margin-top: 15px; color: #555; }
@@ -23,13 +23,12 @@
     .slot-me { background: var(--occupied-me); color: var(--primary); font-weight: bold; }
     .slot-other { background: var(--occupied-other); color: var(--danger); font-weight: bold; }
     .slot-free { color: var(--success); font-weight: bold; }
-    .holiday-msg { background: var(--holiday); color: #e65100; padding: 15px; border-radius: 8px; text-align: center; font-weight: bold; margin-top: 10px; border: 1px solid #ffe0b2; }
     .main-btn { background: var(--primary); color: white; border: none; font-weight: bold; cursor: pointer; transition: 0.3s; margin-top: 20px; }
     .edit-btn { background: var(--warning); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; margin-right: 5px; }
     .delete-btn { background: var(--danger); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; }
-    button:disabled { background: #ccc !important; cursor: not-allowed; }
     table.res-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
     .res-table th, .res-table td { text-align: left; padding: 12px; border-bottom: 1px solid #eee; font-size: 13px; }
+    .holiday-msg { background: var(--holiday); color: #e65100; padding: 15px; border-radius: 8px; text-align: center; font-weight: bold; margin-top: 10px; }
   </style>
 </head>
 <body>
@@ -47,7 +46,7 @@
     <div id="registerPage" class="hidden">
         <h2>Yeni Kayıt</h2>
         <select id="regDomain"><option value="@ogr.ikc.edu.tr">Öğrenci</option><option value="@ikc.edu.tr">Akademik</option></select>
-        <input id="regId" type="text" placeholder="ID / Öğrenci No"><input id="regFullName" type="text" placeholder="Ad Soyad"><input id="regPass" type="password" placeholder="Şifre">
+        <input id="regId" type="text" placeholder="ID / No"><input id="regFullName" type="text" placeholder="Ad Soyad"><input id="regPass" type="password" placeholder="Şifre">
         <button class="main-btn" onclick="handleRegister()">Kayıt Ol</button>
         <button onclick="switchPage('loginPage')" style="background:none; border:none; color:#666; cursor:pointer;">Geri Dön</button>
     </div>
@@ -55,18 +54,12 @@
     <div id="bookingPage" class="hidden">
         <h2 id="userGreet">Hoş Geldiniz</h2>
         <div id="adminLink" class="hidden" style="margin-bottom: 15px;"><button onclick="switchPage('adminPage')" style="background: var(--admin); color: white; padding: 10px; border-radius: 8px; border: none; cursor: pointer; font-weight: bold;">⚠️ Admin Paneline Git</button></div>
-        
         <div id="editModeNotice" class="hidden" style="background: #fff3cd; color: #856404; padding: 10px; border-radius: 8px; margin-bottom: 15px; font-weight: bold; border: 1px solid #ffeeba;">⚠️ Randevu Düzenleme Modundasınız.</div>
         
         <div style="background: #eef6ff; padding: 15px; border-radius: 10px; margin-bottom: 20px;">
             <label>1. Laboratuvar ve Tarih Seçimi</label>
             <div style="display:flex; gap:10px;">
-                <select id="labSelect" onchange="refreshView()" style="flex:2;">
-                    <option value="">Laboratuvar Seçiniz...</option>
-                    <option value="Malzeme Karakterizasyon Lab.">Malzeme Karakterizasyon Lab.</option>
-                    <option value="Numune Hazırlama Lab.">Numune Hazırlama Lab.</option>
-                    <option value="Üretim Lab.">Üretim Lab.</option>
-                </select>
+                <select id="labSelect" onchange="refreshView()" style="flex:2;"><option value="">Seçiniz...</option><option value="Malzeme Karakterizasyon Lab.">Malzeme Karakterizasyon Lab.</option><option value="Numune Hazırlama Lab.">Numune Hazırlama Lab.</option><option value="Üretim Lab.">Üretim Lab.</option></select>
                 <input id="resDate" type="date" onchange="refreshView()" style="flex:1;">
             </div>
         </div>
@@ -79,14 +72,11 @@
                 <label style="margin-top:25px;">2. Cihaz ve Saat Seçimi</label>
                 <div id="equipmentGrid" class="grid-options"></div>
                 <div id="timeGrid" class="grid-options"></div>
-                <button id="saveBtn" class="main-btn" onclick="saveBooking()">Randevuyu Kaydet</button>
+                <button class="main-btn" onclick="saveBooking()">Randevuyu Kaydet</button>
             </div>
         </div>
-        
-        <div class="table-section">
-            <h3>Randevularım</h3>
-            <table class="res-table"><thead><tr><th>Lab / Cihaz</th><th>Zaman</th><th>İşlem</th></tr></thead><tbody id="userBody"></tbody></table>
-        </div>
+        <h3>Randevularım</h3>
+        <table class="res-table"><thead><tr><th>Lab / Cihaz</th><th>Tarih / Zaman</th><th>İşlem</th></tr></thead><tbody id="userBody"></tbody></table>
         <button onclick="logout()" style="background:#666; color:white; margin-top:20px;">Çıkış Yap</button>
     </div>
 
@@ -95,21 +85,8 @@
         <button onclick="switchPage('bookingPage')" style="background: var(--primary); color: white; border: none; padding: 10px; border-radius: 8px; cursor: pointer;">Randevu Paneline Dön</button>
         <div style="background: #f0f4f8; padding: 15px; border-radius: 10px; margin-top: 20px; border: 1px solid #d1d9e0;">
             <h3>İzleme Tablosu</h3>
-            <div style="display:flex; gap:10px;">
-                <select id="adminViewLab" onchange="loadAdminCalendar()" style="flex:2;">
-                    <option value="Malzeme Karakterizasyon Lab.">Malzeme Karakterizasyon Lab.</option>
-                    <option value="Numune Hazırlama Lab.">Numune Hazırlama Lab.</option>
-                    <option value="Üretim Lab.">Üretim Lab.</option>
-                </select>
-                <input id="adminViewDate" type="date" onchange="loadAdminCalendar()" style="flex:1;">
-            </div>
+            <div style="display:flex; gap:10px;"><select id="adminViewLab" onchange="loadAdminCalendar()" style="flex:2;"><option value="Malzeme Karakterizasyon Lab.">Malzeme Karakterizasyon Lab.</option><option value="Numune Hazırlama Lab.">Numune Hazırlama Lab.</option><option value="Üretim Lab.">Üretim Lab.</option></select><input id="adminViewDate" type="date" onchange="loadAdminCalendar()" style="flex:1;"></div>
             <div class="calendar-container"><table class="cal-table"><thead id="adminCalHead"></thead><tbody id="adminCalBody"></tbody></table></div>
-        </div>
-        <div style="background: #f8f9fa; padding: 15px; border-radius: 10px; margin-top: 20px; border: 1px solid #ddd;">
-            <label>Yeni Cihaz Ekle</label>
-            <select id="adminLabSelect"><option value="Malzeme Karakterizasyon Lab.">Malzeme Karakterizasyon Lab.</option><option value="Numune Hazırlama Lab.">Numune Hazırlama Lab.</option><option value="Üretim Lab.">Üretim Lab.</option></select>
-            <input id="newEquipName" type="text" placeholder="Cihaz Adı">
-            <button class="main-btn" onclick="addEquipmentToDB()" style="background: var(--admin);">Ekle</button>
         </div>
         <h3>Tüm Sistem Randevuları</h3>
         <table class="res-table"><thead><tr><th>Kullanıcı</th><th>Cihaz</th><th>Zaman</th><th>İşlem</th></tr></thead><tbody id="adminBody"></tbody></table>
@@ -127,48 +104,46 @@ const DB_ID = '6981c42a00202c6cdf0e';
 const COLL_APP = 'appointments';
 const COLL_EQUIP = 'equipments';
 const REDIRECT_URL = "https://oktaykemah.github.io/lab-randevu/";
-const SUPER_ADMIN_MAIL = "oktay.kemah@ikc.edu.tr"; // Sadece bu mail admin panelini görebilir
 
+const SUPER_ADMINS = ["oktay.kemah@ikc.edu.tr", "saadet.guler@ikc.edu.tr", "metehan.atagur@ikc.edu.tr", "berk.ozler@ikc.edu.tr"];
 const hours = ["09:00-10:00", "10:00-11:00", "11:00-12:00", "12:00-13:00", "13:00-14:00", "14:00-15:00", "15:00-16:00", "16:00-17:00"];
-let currentUser = null;
-let editingId = null;
+let currentUser = null, editingId = null, preSelectedEquips = [], preSelectedTimes = [];
+
+// TARİH FORMATLAYICI: ISO -> 06.02.2026
+function formatDate(dateStr) {
+    if (!dateStr) return "";
+    const d = new Date(dateStr);
+    return `${d.getDate().toString().padStart(2, '0')}.${(d.getMonth() + 1).toString().padStart(2, '0')}.${d.getFullYear()}`;
+}
 
 function getHoliday(dateStr) {
-    const date = new Date(dateStr);
-    const day = date.getDay();
-    const monthDay = (date.getMonth() + 1) + "-" + date.getDate();
-    if (day === 0) return "Pazar (Kapalı)";
-    if (day === 6) return "Cumartesi (Kapalı)";
-    const holidays = {"1-1":"Yılbaşı","4-23":"23 Nisan","5-1":"1 Mayıs","5-19":"19 Mayıs","7-15":"15 Temmuz","8-30":"30 Ağustos","10-29":"29 Ekim"};
-    const religious2026 = {"3-19":"Arife","3-20":"Ramazan","3-21":"Ramazan","3-22":"Ramazan","5-26":"Arife","5-27":"Kurban","5-28":"Kurban","5-29":"Kurban","5-30":"Kurban"};
-    return holidays[monthDay] || religious2026[monthDay] || null;
+    const d = new Date(dateStr), day = d.getDay(), monthDay = (d.getMonth() + 1) + "-" + d.getDate();
+    if (day === 0 || day === 6) return "Hafta Sonu (Kapalı)";
+    const h = {"1-1":"Yılbaşı","4-23":"23 Nisan","5-1":"1 Mayıs","5-19":"19 Mayıs","7-15":"15 Temmuz","8-30":"30 Ağustos","10-29":"29 Ekim"};
+    return h[monthDay] || null;
 }
 
 function canProcess(targetDateStr, type) {
     const target = new Date(targetDateStr); target.setHours(0,0,0,0);
     const today = new Date(); today.setHours(0,0,0,0);
     if (type === 'booking') return target > today;
-    if (type === 'cancel' || type === 'edit') {
-        const limit = new Date(target); limit.setDate(limit.getDate() - 1);
-        return today < limit;
-    }
-    return true;
+    const limit = new Date(target); limit.setDate(limit.getDate() - 1);
+    return today < limit;
 }
 
 async function refreshView() {
-    const lab = document.getElementById("labSelect").value;
-    const dateStr = document.getElementById("resDate").value;
+    const lab = document.getElementById("labSelect").value, dateStr = document.getElementById("resDate").value;
     if(!lab || !dateStr) return;
-    const notice = document.getElementById("holidayNotice");
-    const content = document.getElementById("calendarContent");
+    const notice = document.getElementById("holidayNotice"), content = document.getElementById("calendarContent");
     document.getElementById("statusSection").classList.remove("hidden");
     const holiday = getHoliday(dateStr);
-    if(holiday) { notice.innerText = `⚠️ ${holiday} nedeniyle kapalıdır.`; notice.classList.remove("hidden"); content.classList.add("hidden"); return; }
-    if(!canProcess(dateStr, 'booking')) { notice.innerText = `⚠️ Aynı gün için işlem yapılamaz.`; notice.classList.remove("hidden"); content.classList.add("hidden"); return; }
+    if(holiday) { notice.innerText = `⚠️ ${holiday}`; notice.classList.remove("hidden"); content.classList.add("hidden"); return; }
+    if(!canProcess(dateStr, 'booking')) { notice.innerText = `⚠️ Aynı gün işlem yapılamaz.`; notice.classList.remove("hidden"); content.classList.add("hidden"); return; }
     notice.classList.add("hidden"); content.classList.remove("hidden");
+    
     const equips = await databases.listDocuments(DB_ID, COLL_EQUIP, [Query.equal('lab', lab)]);
-    document.getElementById("equipmentGrid").innerHTML = equips.documents.map(d => `<label class="opt-item"><input type="checkbox" name="equip" value="${d.name}">${d.name}</label>`).join('');
-    document.getElementById("timeGrid").innerHTML = hours.map(h => `<label class="opt-item"><input type="checkbox" name="timeSlot" value="${h}">${h}</label>`).join('');
+    document.getElementById("equipmentGrid").innerHTML = equips.documents.map(d => `<label class="opt-item"><input type="checkbox" name="equip" value="${d.name}" ${preSelectedEquips.includes(d.name) ? 'checked' : ''}>${d.name}</label>`).join('');
+    document.getElementById("timeGrid").innerHTML = hours.map(h => `<label class="opt-item"><input type="checkbox" name="timeSlot" value="${h}" ${preSelectedTimes.includes(h) ? 'checked' : ''}>${h}</label>`).join('');
     await renderCalendar(lab, dateStr, "calHead", "calBody", false);
 }
 
@@ -178,11 +153,8 @@ async function renderCalendar(lab, date, headId, bodyId, isAdmin) {
     document.getElementById(headId).innerHTML = `<tr><th>Saat</th>${equips.documents.map(d => `<th>${d.name}</th>`).join('')}</tr>`;
     document.getElementById(bodyId).innerHTML = hours.map(h => {
         const row = equips.documents.map(d => {
-            const match = apps.documents.find(a => a.time.includes(h) && a.equipment.includes(d.name));
-            if (match) {
-                if (isAdmin) return `<td class="slot-occupied">${match.name}</td>`;
-                return match.name === currentUser.name ? `<td class="slot-me">BEN</td>` : `<td class="slot-other">DOLU</td>`;
-            }
+            const m = apps.documents.find(a => a.time.includes(h) && a.equipment.includes(d.name));
+            if (m) return isAdmin ? `<td class="slot-occupied">${m.name}</td>` : (m.name === currentUser.name ? `<td class="slot-me">BEN</td>` : `<td class="slot-other">DOLU</td>`);
             return `<td class="slot-free">BOŞ</td>`;
         }).join('');
         return `<tr><td><b>${h}</b></td>${row}</tr>`;
@@ -190,68 +162,73 @@ async function renderCalendar(lab, date, headId, bodyId, isAdmin) {
 }
 
 async function saveBooking() {
-    const lab = document.getElementById("labSelect").value;
-    const date = document.getElementById("resDate").value;
+    const lab = document.getElementById("labSelect").value, date = document.getElementById("resDate").value;
     const equips = Array.from(document.querySelectorAll('input[name="equip"]:checked')).map(e => e.value);
     const times = Array.from(document.querySelectorAll('input[name="timeSlot"]:checked')).map(e => e.value);
     if(equips.length === 0 || times.length === 0) { alert("Eksik seçim!"); return; }
+    
+    // Çakışma kontrolü (Düzenlenen randevuyu hariç tutarak)
     const res = await databases.listDocuments(DB_ID, COLL_APP, [Query.equal('date', date), Query.equal('lab', lab)]);
     for(let dev of equips) {
         for(let t of times) {
-            if(res.documents.find(doc => doc.time.includes(t) && doc.equipment.includes(dev))) { alert("Dolu!"); return; }
+            const conflict = res.documents.find(doc => doc.$id !== editingId && doc.time.includes(t) && doc.equipment.includes(dev));
+            if(conflict) { alert(`Hata: ${dev} ${t} dolu!`); return; }
         }
     }
-    if(editingId) { await databases.deleteDocument(DB_ID, COLL_APP, editingId); editingId = null; document.getElementById("editModeNotice").classList.add("hidden"); }
+
+    if(editingId) { await databases.deleteDocument(DB_ID, COLL_APP, editingId); editingId = null; preSelectedEquips=[]; preSelectedTimes=[]; document.getElementById("editModeNotice").classList.add("hidden"); }
     await databases.createDocument(DB_ID, COLL_APP, ID.unique(), { name: currentUser.name, lab, date, equipment: equips.join(', '), time: times.join(', ') });
-    alert("Başarılı!"); refreshView(); loadUserData();
+    alert("Onaylandı!"); refreshView(); loadUserData(); if(SUPER_ADMINS.includes(currentUser.email)) loadAdminData();
 }
 
-async function editRes(id, lab, date) {
-    if(!confirm("Düzenleme moduna geçilecek. Onaylıyor musunuz?")) return;
-    editingId = id; document.getElementById("editModeNotice").classList.remove("hidden");
-    document.getElementById("labSelect").value = lab; document.getElementById("resDate").value = date;
-    await refreshView(); document.getElementById("bookingPage").scrollIntoView({ behavior: 'smooth' });
+async function editRes(id, lab, date, equipStr, timeStr) {
+    if(!confirm("Randevu düzenlenecek, onaylıyor musunuz?")) return;
+    editingId = id; 
+    preSelectedEquips = equipStr.split(', '); 
+    preSelectedTimes = timeStr.split(', ');
+    document.getElementById("editModeNotice").classList.remove("hidden");
+    document.getElementById("labSelect").value = lab;
+    document.getElementById("resDate").value = date.split('T')[0];
+    await refreshView(); 
+    document.getElementById("bookingPage").classList.remove("hidden");
+    document.getElementById("bookingPage").scrollIntoView({ behavior: 'smooth' });
 }
 
 async function loadUserData() {
     const res = await databases.listDocuments(DB_ID, COLL_APP, [Query.equal('name', currentUser.name), Query.orderDesc('$createdAt')]);
     document.getElementById("userBody").innerHTML = res.documents.map(doc => {
         const allowed = canProcess(doc.date, 'edit');
-        return `<tr><td><b>${doc.lab}</b><br>${doc.equipment}</td><td>${doc.date}<br>${doc.time}</td>
-            <td><button class="edit-btn" ${allowed ? '' : 'disabled'} onclick="editRes('${doc.$id}', '${doc.lab}', '${doc.date}')">${allowed ? 'Düzenle' : '-'}</button>
-            <button class="delete-btn" ${allowed ? '' : 'disabled'} onclick="deleteRes('${doc.$id}', false)">${allowed ? 'İptal' : 'Kapandı'}</button></td></tr>`;
+        return `<tr><td><b>${doc.lab}</b><br>${doc.equipment}</td><td>${formatDate(doc.date)}<br>${doc.time}</td>
+            <td><button class="edit-btn" ${allowed ? '' : 'disabled'} onclick="editRes('${doc.$id}', '${doc.lab}', '${doc.date}', '${doc.equipment}', '${doc.time}')">${allowed ? 'Düzenle' : '-'}</button>
+            <button class="delete-btn" ${allowed ? '' : 'disabled'} onclick="deleteRes('${doc.$id}', false)">İptal</button></td></tr>`;
     }).join('');
+}
+
+async function loadAdminData() {
+    const res = await databases.listDocuments(DB_ID, COLL_APP, [Query.orderDesc('$createdAt')]);
+    document.getElementById("adminBody").innerHTML = res.documents.map(doc => `<tr><td>${doc.name}</td><td>${doc.equipment}</td><td>${formatDate(doc.date)} / ${doc.time}</td>
+        <td><button class="edit-btn" onclick="editRes('${doc.$id}', '${doc.lab}', '${doc.date}', '${doc.equipment}', '${doc.time}')">Düzenle</button>
+        <button class="delete-btn" onclick="deleteRes('${doc.$id}', true)">Sil</button></td></tr>`).join('');
 }
 
 async function checkSession() {
     try {
         currentUser = await account.get();
-        if(!currentUser.emailVerification) { await account.deleteSession('current'); return; }
         document.getElementById("loginPage").classList.add("hidden");
         document.getElementById("bookingPage").classList.remove("hidden");
         document.getElementById("userGreet").innerText = "Merhaba, " + currentUser.name;
-        
-        // SÜPER ADMIN KONTROLÜ
-        if(currentUser.email === SUPER_ADMIN_MAIL) {
-            document.getElementById("adminLink").classList.remove("hidden");
-            loadAdminData();
-        }
+        if(SUPER_ADMINS.includes(currentUser.email)) { document.getElementById("adminLink").classList.remove("hidden"); loadAdminData(); }
         loadUserData();
     } catch (e) {}
-}
-
-async function loadAdminData() {
-    const res = await databases.listDocuments(DB_ID, COLL_APP, [Query.orderDesc('$createdAt')]);
-    document.getElementById("adminBody").innerHTML = res.documents.map(doc => `<tr><td>${doc.name}</td><td>${doc.equipment}</td><td>${doc.date} / ${doc.time}</td><td><button class="delete-btn" onclick="deleteRes('${doc.$id}', true)">Sil</button></td></tr>`).join('');
 }
 
 async function deleteRes(id, isAdmin) { if(!confirm("Emin misiniz?")) return; await databases.deleteDocument(DB_ID, COLL_APP, id); isAdmin ? loadAdminData() : loadUserData(); refreshView(); }
 async function handleLogin() { const email = document.getElementById("loginId").value.trim() + document.getElementById("loginDomain").value; try { await account.createEmailSession(email, document.getElementById("loginPass").value); location.reload(); } catch (e) { alert(e.message); } }
 async function handleRegister() { const email = document.getElementById("regId").value.trim() + document.getElementById("regDomain").value; try { await account.create(ID.unique(), email, document.getElementById("regPass").value, document.getElementById("regFullName").value); await account.createEmailSession(email, document.getElementById("regPass").value); await account.createVerification(REDIRECT_URL); alert("Mail gönderildi."); await account.deleteSession('current'); switchPage('loginPage'); } catch (e) { alert(e.message); } }
-async function loadAdminCalendar() { const lab = document.getElementById("adminViewLab").value; const date = document.getElementById("adminViewDate").value; await renderCalendar(lab, date, "adminCalHead", "adminCalBody", true); }
+async function loadAdminCalendar() { const lab = document.getElementById("adminViewLab").value, date = document.getElementById("adminViewDate").value; await renderCalendar(lab, date, "adminCalHead", "adminCalBody", true); }
 function switchPage(id) { document.querySelectorAll('.box > div').forEach(d => d.classList.add('hidden')); document.getElementById(id).classList.remove('hidden'); }
 async function logout() { await account.deleteSession('current'); location.reload(); }
-async function addEquipmentToDB() { const lab = document.getElementById("adminLabSelect").value; const name = document.getElementById("newEquipName").value.trim(); if(name) { await databases.createDocument(DB_ID, COLL_EQUIP, ID.unique(), { name, lab }); alert("Eklendi!"); document.getElementById("newEquipName").value = ""; loadAdminData(); loadAdminCalendar(); } }
+async function addEquipmentToDB() { const lab = document.getElementById("adminLabSelect").value, name = document.getElementById("newEquipName").value.trim(); if(name) { await databases.createDocument(DB_ID, COLL_EQUIP, ID.unique(), { name, lab }); alert("Eklendi!"); document.getElementById("newEquipName").value = ""; loadAdminCalendar(); } }
 
 window.onload = async () => {
     const urlParams = new URLSearchParams(window.location.search);
