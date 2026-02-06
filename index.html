@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>IKC Lab Booking - v1.5.4</title>
+  <title>IKC Lab Booking - v1.5.5</title>
   <script src="https://cdn.jsdelivr.net/npm/appwrite@13.0.1"></script>
   <style>
     :root { --primary: #0066cc; --admin: #2c3e50; --danger: #e74c3c; --success: #27ae60; --warning: #f39c12; --occupied-other: #fdeaea; --occupied-me: #e3f2fd; --holiday: #fff3e0; }
@@ -26,9 +26,9 @@
     .main-btn { background: var(--primary); color: white; border: none; font-weight: bold; cursor: pointer; transition: 0.3s; margin-top: 20px; }
     .edit-btn { background: var(--warning); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; margin-right: 5px; }
     .delete-btn { background: var(--danger); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; }
+    button:disabled { background: #ccc !important; cursor: not-allowed; opacity: 0.6; }
     table.res-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
     .res-table th, .res-table td { text-align: left; padding: 12px; border-bottom: 1px solid #eee; font-size: 13px; }
-    .holiday-msg { background: var(--holiday); color: #e65100; padding: 15px; border-radius: 8px; text-align: center; font-weight: bold; margin-top: 10px; }
   </style>
 </head>
 <body>
@@ -65,7 +65,7 @@
         </div>
 
         <div id="statusSection" class="hidden">
-            <div id="holidayNotice" class="holiday-msg hidden"></div>
+            <div id="holidayNotice" class="holiday-msg hidden" style="background: var(--holiday); color: #e65100; padding: 15px; border-radius: 8px; text-align: center; font-weight: bold; margin-bottom: 10px;"></div>
             <div id="calendarContent">
                 <h3>Günlük Doluluk Çizelgesi</h3>
                 <div class="calendar-container"><table class="cal-table"><thead id="calHead"></thead><tbody id="calBody"></tbody></table></div>
@@ -122,15 +122,25 @@ function getHoliday(dateStr) {
     return h[monthDay] || null;
 }
 
-// Gelişmiş Zaman Kontrolü: Adminler için her zaman true döner
-function canProcess(targetDateStr, type) {
-    if (SUPER_ADMINS.includes(currentUser?.email)) return true; // ADMIN ÖZGÜRLÜĞÜ
+// v1.5.5 Yeni Mantık: Geçmiş randevu hiçbir koşulda düzenlenemez/silinemez.
+function isPast(dateStr) {
+    const target = new Date(dateStr); target.setHours(0,0,0,0);
+    const today = new Date(); today.setHours(0,0,0,0);
+    return target < today; // Bugünün tarihi geçmiş kabul edilmez.
+}
 
+function canProcess(targetDateStr, type) {
+    if (isPast(targetDateStr)) return false; // GEÇMİŞ KİLİDİ (Tüm roller için)
+    
+    // Adminler bugünkü randevulara müdahale edebilir
+    if (SUPER_ADMINS.includes(currentUser?.email)) return true;
+
+    // Öğrenciler için kısıtlamalar
     const target = new Date(targetDateStr); target.setHours(0,0,0,0);
     const today = new Date(); today.setHours(0,0,0,0);
     if (type === 'booking') return target > today;
     const limit = new Date(target); limit.setDate(limit.getDate() - 1);
-    return today < limit;
+    return today < limit; // En az 24 saat kuralı
 }
 
 async function refreshView() {
@@ -140,7 +150,6 @@ async function refreshView() {
     document.getElementById("statusSection").classList.remove("hidden");
     const holiday = getHoliday(dateStr);
     
-    // Tatil ve Bugün Kısıtlaması (Sadece öğrenciler için)
     if (!SUPER_ADMINS.includes(currentUser?.email)) {
         if(holiday) { notice.innerText = `⚠️ ${holiday}`; notice.classList.remove("hidden"); content.classList.add("hidden"); return; }
         if(!canProcess(dateStr, 'booking')) { notice.innerText = `⚠️ Aynı gün işlem yapılamaz.`; notice.classList.remove("hidden"); content.classList.add("hidden"); return; }
@@ -187,6 +196,7 @@ async function saveBooking() {
 }
 
 async function editRes(id, lab, date, equipStr, timeStr) {
+    if (isPast(date)) { alert("Geçmiş randevular düzenlenemez!"); return; }
     editingId = id; 
     preSelectedEquips = equipStr.split(', '); 
     preSelectedTimes = timeStr.split(', ');
@@ -194,25 +204,29 @@ async function editRes(id, lab, date, equipStr, timeStr) {
     document.getElementById("labSelect").value = lab;
     document.getElementById("resDate").value = date.split('T')[0];
     await refreshView(); 
-    document.getElementById("bookingPage").classList.remove("hidden");
     document.getElementById("bookingPage").scrollIntoView({ behavior: 'smooth' });
 }
 
 async function loadUserData() {
     const res = await databases.listDocuments(DB_ID, COLL_APP, [Query.equal('name', currentUser.name), Query.orderDesc('$createdAt')]);
     document.getElementById("userBody").innerHTML = res.documents.map(doc => {
+        const past = isPast(doc.date);
         const allowed = canProcess(doc.date, 'edit');
         return `<tr><td><b>${doc.lab}</b><br>${doc.equipment}</td><td>${formatDate(doc.date)}<br>${doc.time}</td>
-            <td><button class="edit-btn" ${allowed ? '' : 'disabled'} onclick="editRes('${doc.$id}', '${doc.lab}', '${doc.date}', '${doc.equipment}', '${doc.time}')">${allowed ? 'Düzenle' : '-'}</button>
-            <button class="delete-btn" ${allowed ? '' : 'disabled'} onclick="deleteRes('${doc.$id}', false)">${allowed ? 'İptal' : 'Kapandı'}</button></td></tr>`;
+            <td><button class="edit-btn" ${allowed ? '' : 'disabled'} onclick="editRes('${doc.$id}', '${doc.lab}', '${doc.date}', '${doc.equipment}', '${doc.time}')">${past ? 'Süresi Doldu' : (allowed ? 'Düzenle' : '-')}</button>
+            <button class="delete-btn" ${allowed ? '' : 'disabled'} onclick="deleteRes('${doc.$id}', false)">${past ? '-' : (allowed ? 'İptal' : 'Kapandı')}</button></td></tr>`;
     }).join('');
 }
 
 async function loadAdminData() {
     const res = await databases.listDocuments(DB_ID, COLL_APP, [Query.orderDesc('$createdAt')]);
-    document.getElementById("adminBody").innerHTML = res.documents.map(doc => `<tr><td>${doc.name}</td><td>${doc.equipment}</td><td>${formatDate(doc.date)} / ${doc.time}</td>
-        <td><button class="edit-btn" onclick="editRes('${doc.$id}', '${doc.lab}', '${doc.date}', '${doc.equipment}', '${doc.time}')">Düzenle</button>
-        <button class="delete-btn" onclick="deleteRes('${doc.$id}', true)">Sil</button></td></tr>`).join('');
+    document.getElementById("adminBody").innerHTML = res.documents.map(doc => {
+        const past = isPast(doc.date);
+        const allowed = canProcess(doc.date, 'edit');
+        return `<tr><td>${doc.name}</td><td>${doc.equipment}</td><td>${formatDate(doc.date)} / ${doc.time}</td>
+        <td><button class="edit-btn" ${allowed ? '' : 'disabled'} onclick="editRes('${doc.$id}', '${doc.lab}', '${doc.date}', '${doc.equipment}', '${doc.time}')">${past ? '-' : 'Düzenle'}</button>
+        <button class="delete-btn" ${allowed ? '' : 'disabled'} onclick="deleteRes('${doc.$id}', true)">${past ? '-' : 'Sil'}</button></td></tr>`;
+    }).join('');
 }
 
 async function checkSession() {
@@ -232,7 +246,6 @@ async function handleRegister() { const email = document.getElementById("regId")
 async function loadAdminCalendar() { const lab = document.getElementById("adminViewLab").value, date = document.getElementById("adminViewDate").value; await renderCalendar(lab, date, "adminCalHead", "adminCalBody", true); }
 function switchPage(id) { document.querySelectorAll('.box > div').forEach(d => d.classList.add('hidden')); document.getElementById(id).classList.remove('hidden'); }
 async function logout() { await account.deleteSession('current'); location.reload(); }
-async function addEquipmentToDB() { const lab = document.getElementById("adminLabSelect").value, name = document.getElementById("newEquipName").value.trim(); if(name) { await databases.createDocument(DB_ID, COLL_EQUIP, ID.unique(), { name, lab }); alert("Eklendi!"); document.getElementById("newEquipName").value = ""; loadAdminCalendar(); } }
 
 window.onload = async () => {
     const urlParams = new URLSearchParams(window.location.search);
