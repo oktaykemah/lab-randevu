@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>IKC Lab Booking - v1.5.3</title>
+  <title>IKC Lab Booking - v1.5.4</title>
   <script src="https://cdn.jsdelivr.net/npm/appwrite@13.0.1"></script>
   <style>
     :root { --primary: #0066cc; --admin: #2c3e50; --danger: #e74c3c; --success: #27ae60; --warning: #f39c12; --occupied-other: #fdeaea; --occupied-me: #e3f2fd; --holiday: #fff3e0; }
@@ -109,7 +109,6 @@ const SUPER_ADMINS = ["oktay.kemah@ikc.edu.tr", "saadet.guler@ikc.edu.tr", "mete
 const hours = ["09:00-10:00", "10:00-11:00", "11:00-12:00", "12:00-13:00", "13:00-14:00", "14:00-15:00", "15:00-16:00", "16:00-17:00"];
 let currentUser = null, editingId = null, preSelectedEquips = [], preSelectedTimes = [];
 
-// TARİH FORMATLAYICI: ISO -> 06.02.2026
 function formatDate(dateStr) {
     if (!dateStr) return "";
     const d = new Date(dateStr);
@@ -123,7 +122,10 @@ function getHoliday(dateStr) {
     return h[monthDay] || null;
 }
 
+// Gelişmiş Zaman Kontrolü: Adminler için her zaman true döner
 function canProcess(targetDateStr, type) {
+    if (SUPER_ADMINS.includes(currentUser?.email)) return true; // ADMIN ÖZGÜRLÜĞÜ
+
     const target = new Date(targetDateStr); target.setHours(0,0,0,0);
     const today = new Date(); today.setHours(0,0,0,0);
     if (type === 'booking') return target > today;
@@ -137,10 +139,14 @@ async function refreshView() {
     const notice = document.getElementById("holidayNotice"), content = document.getElementById("calendarContent");
     document.getElementById("statusSection").classList.remove("hidden");
     const holiday = getHoliday(dateStr);
-    if(holiday) { notice.innerText = `⚠️ ${holiday}`; notice.classList.remove("hidden"); content.classList.add("hidden"); return; }
-    if(!canProcess(dateStr, 'booking')) { notice.innerText = `⚠️ Aynı gün işlem yapılamaz.`; notice.classList.remove("hidden"); content.classList.add("hidden"); return; }
-    notice.classList.add("hidden"); content.classList.remove("hidden");
     
+    // Tatil ve Bugün Kısıtlaması (Sadece öğrenciler için)
+    if (!SUPER_ADMINS.includes(currentUser?.email)) {
+        if(holiday) { notice.innerText = `⚠️ ${holiday}`; notice.classList.remove("hidden"); content.classList.add("hidden"); return; }
+        if(!canProcess(dateStr, 'booking')) { notice.innerText = `⚠️ Aynı gün işlem yapılamaz.`; notice.classList.remove("hidden"); content.classList.add("hidden"); return; }
+    }
+    
+    notice.classList.add("hidden"); content.classList.remove("hidden");
     const equips = await databases.listDocuments(DB_ID, COLL_EQUIP, [Query.equal('lab', lab)]);
     document.getElementById("equipmentGrid").innerHTML = equips.documents.map(d => `<label class="opt-item"><input type="checkbox" name="equip" value="${d.name}" ${preSelectedEquips.includes(d.name) ? 'checked' : ''}>${d.name}</label>`).join('');
     document.getElementById("timeGrid").innerHTML = hours.map(h => `<label class="opt-item"><input type="checkbox" name="timeSlot" value="${h}" ${preSelectedTimes.includes(h) ? 'checked' : ''}>${h}</label>`).join('');
@@ -154,7 +160,7 @@ async function renderCalendar(lab, date, headId, bodyId, isAdmin) {
     document.getElementById(bodyId).innerHTML = hours.map(h => {
         const row = equips.documents.map(d => {
             const m = apps.documents.find(a => a.time.includes(h) && a.equipment.includes(d.name));
-            if (m) return isAdmin ? `<td class="slot-occupied">${m.name}</td>` : (m.name === currentUser.name ? `<td class="slot-me">BEN</td>` : `<td class="slot-other">DOLU</td>`);
+            if (m) return (isAdmin || SUPER_ADMINS.includes(currentUser.email)) ? `<td class="slot-occupied">${m.name}</td>` : (m.name === currentUser.name ? `<td class="slot-me">BEN</td>` : `<td class="slot-other">DOLU</td>`);
             return `<td class="slot-free">BOŞ</td>`;
         }).join('');
         return `<tr><td><b>${h}</b></td>${row}</tr>`;
@@ -167,7 +173,6 @@ async function saveBooking() {
     const times = Array.from(document.querySelectorAll('input[name="timeSlot"]:checked')).map(e => e.value);
     if(equips.length === 0 || times.length === 0) { alert("Eksik seçim!"); return; }
     
-    // Çakışma kontrolü (Düzenlenen randevuyu hariç tutarak)
     const res = await databases.listDocuments(DB_ID, COLL_APP, [Query.equal('date', date), Query.equal('lab', lab)]);
     for(let dev of equips) {
         for(let t of times) {
@@ -182,7 +187,6 @@ async function saveBooking() {
 }
 
 async function editRes(id, lab, date, equipStr, timeStr) {
-    if(!confirm("Randevu düzenlenecek, onaylıyor musunuz?")) return;
     editingId = id; 
     preSelectedEquips = equipStr.split(', '); 
     preSelectedTimes = timeStr.split(', ');
@@ -200,7 +204,7 @@ async function loadUserData() {
         const allowed = canProcess(doc.date, 'edit');
         return `<tr><td><b>${doc.lab}</b><br>${doc.equipment}</td><td>${formatDate(doc.date)}<br>${doc.time}</td>
             <td><button class="edit-btn" ${allowed ? '' : 'disabled'} onclick="editRes('${doc.$id}', '${doc.lab}', '${doc.date}', '${doc.equipment}', '${doc.time}')">${allowed ? 'Düzenle' : '-'}</button>
-            <button class="delete-btn" ${allowed ? '' : 'disabled'} onclick="deleteRes('${doc.$id}', false)">İptal</button></td></tr>`;
+            <button class="delete-btn" ${allowed ? '' : 'disabled'} onclick="deleteRes('${doc.$id}', false)">${allowed ? 'İptal' : 'Kapandı'}</button></td></tr>`;
     }).join('');
 }
 
