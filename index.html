@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>IKC Lab Booking - v1.99.8</title>
+  <title>IKC Lab Booking - v1.9.9</title>
   <script src="https://cdn.jsdelivr.net/npm/appwrite@13.0.1"></script>
   <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
   <style>
@@ -55,7 +55,8 @@
     .res-table th { background: #f8f9fa; color: #555; }
     
     .info-card { background: #e3f2fd; padding: 12px; border-radius: 8px; color: #0d47a1; font-size: 13px; font-weight: bold; margin-bottom: 15px; border-left: 5px solid var(--primary); line-height: 1.4; }
-    /* KOTA KARTI STİLİ (YENİ) */
+    
+    /* KOTA KARTI STİLİ */
     .quota-card { background: #fff3cd; padding: 12px; border-radius: 8px; color: #856404; font-size: 13px; font-weight: bold; margin-bottom: 15px; border-left: 5px solid #ffc107; display: flex; justify-content: space-between; align-items: center; }
     
     .holiday-msg { background: var(--holiday); color: #e65100; padding: 15px; border-radius: 8px; text-align: center; font-weight: bold; margin-bottom: 15px; border: 1px solid #ffe0b2; }
@@ -73,7 +74,7 @@
 </head>
 <body>
 
-<div class="version-tag">v1.9.8</div>
+<div class="version-tag">v1.9.9</div>
 
 <div id="app" class="box">
     <div id="loginPage">
@@ -168,7 +169,7 @@
             <h3>Doluluk İzleme & Saat Yönetimi</h3>
             <p style="font-size:11px; color:#666;">* Admin: Boş/Açık hücreleri kapatabilir, kapalı hücreleri açabilirsiniz. Değişiklikler <b>turuncu</b> görünür.</p>
             <div style="display:flex; gap:10px; align-items: center;">
-                <select id="adminViewLab" onchange="loadAdminCalendar()" style="flex:2;"><option value="Malzeme Karakterizasyon Lab.">Malzeme Karakterizasyon Lab.</option><option value="Numune Hazırlama Lab.">Numune Hazırlama Lab.</option><option value="Üretim Lab.">Üretim Lab.</option></select>
+                <select id="adminViewLab" onchange="loadAdminCalendar()" style="flex:2;"><option value="Malzeme Karakterizasyon Lab.">Malzeme Karakterizasyon Lab.</option><option value="Numune Hazırlama Lab.">Numune Hazırlama Lab.</option><option value="Üretim Lab.">Üretim</option></select>
                 <input id="adminViewDate" type="date" onchange="loadAdminCalendar()" style="flex:1;">
                 <button onclick="refreshAdminTable()" class="refresh-btn" style="flex:0.5;">🔄 Yenile</button>
             </div>
@@ -217,7 +218,7 @@ const hours = ["09:00-10:00", "10:00-11:00", "11:00-12:00", "12:00-13:00", "13:0
 const restrictedHours = ["09:00-10:00", "16:00-17:00"]; 
 
 let currentUser = null, editingId = null, editingOwner = null, editingHistory = "";
-let appointmentsMap = {}, userMap = {}, equipmentTypeMap = {}; // Cihaz Tipleri İçin Map
+let appointmentsMap = {}, userMap = {}, equipmentTypeMap = {}; 
 let selectedCells = [], tempAdminChanges = []; 
 
 // KOTA LİMİTLERİ
@@ -233,32 +234,29 @@ function getWeekNumber(d) {
     return [d.getUTCFullYear(), weekNo];
 }
 
-// KOTA SORGULAMA (YENİ)
+// KOTA SORGULAMA (DÜZELTİLDİ: Blok Sayacı)
 async function checkUserQuota(targetDate) {
     if(SUPER_ADMINS.includes(currentUser.email)) return { short: 0, long: 0, ok: true };
 
     const targetWeek = getWeekNumber(new Date(targetDate));
-    // Tüm randevuları çekip filtrele (Performans için sadece kullanıcıya ait olanları çekiyoruz)
-    // Not: Appwrite 'limit' varsayılan 25. Fazlası için limit artırılmalı. Şimdilik 100 yapıyorum.
     const res = await databases.listDocuments(DB_ID, COLL_APP, [Query.equal('name', currentUser.name), Query.limit(100)]);
     
     let usedShort = 0;
     let usedLongBlocks = 0;
 
     for(let doc of res.documents) {
-        // Düzenlenen randevuyu hesaba katma (çünkü o silinip yerine yenisi gelecek)
-        if(editingId && doc.$id === editingId) continue;
+        if(editingId && doc.$id === editingId) continue; // Düzenleneni sayma
 
         const docWeek = getWeekNumber(new Date(doc.date));
         if (docWeek[0] === targetWeek[0] && docWeek[1] === targetWeek[1]) {
-            // Cihaz tipini bul
+            // Cihaz tipini kontrol et (equipmentTypeMap dolu olmalı)
+            // Eğer mapte yoksa varsayılan short
             const type = equipmentTypeMap[doc.equipment] || 'short';
-            const duration = doc.time.split(', ').length; // Kaç saat
+            const duration = doc.time.split(', ').length;
             
             if (type === 'long') {
-                // 1 Blok = 3 saat (Genelde). Ama veritabanında kaç saat kayıtlıysa ona göre blok hesabı
-                // Basit mantık: Her Long kaydı 1 blok sayalım (Çünkü sistem tek seferde 1 blok kaydediyor)
-                // Veya saat sayısına göre: Math.ceil(duration / 3)
+                // Uzun süreli cihazlarda her bir kayıt 1 bloktur (Saat sayısına bakılmaksızın)
+                // Çünkü sistem 3 saatlik veya 6 saatlik de olsa tek bir 'long' kayıt oluşturur.
                 usedLongBlocks += 1; 
             } else {
                 usedShort += duration;
@@ -271,6 +269,12 @@ async function checkUserQuota(targetDate) {
 // UI UPDATE: KOTA BİLGİSİ
 async function updateQuotaDisplay(dateVal) {
     const d = dateVal ? new Date(dateVal) : new Date();
+    // Önce cihaz tiplerini garantiye al (refreshView çağırıyor ama emin olalım)
+    if(Object.keys(equipmentTypeMap).length === 0) {
+        // Eğer map boşsa (sayfa ilk açılışı) lab seçilmemiştir, gösterilmez zaten.
+        return;
+    }
+
     const stats = await checkUserQuota(d);
     const div = document.getElementById("quotaDisplay");
     
@@ -423,12 +427,12 @@ async function refreshView() {
     notice.classList.add("hidden"); content.classList.remove("hidden");
     if (!editingId) selectedCells = [];
     
-    // Cihazları ve Tiplerini Çek
+    // Cihazları ve Tiplerini Çek (Kota hesabı için önemli)
     const allEquips = await databases.listDocuments(DB_ID, COLL_EQUIP, [Query.equal('lab', lab)]);
-    equipmentTypeMap = {}; // Reset map
+    equipmentTypeMap = {}; 
     allEquips.documents.forEach(d => { equipmentTypeMap[d.name] = d.type || 'short'; });
 
-    // Kotayı Hesapla ve Göster
+    // Kotayı Güncelle
     updateQuotaDisplay(dateStr);
 
     await renderCalendar(lab, dateStr, "calHead", "calBody", false, allEquips.documents);
@@ -473,32 +477,24 @@ async function renderCalendar(lab, date, headId, bodyId, isAdminView, devices) {
     }).join('');
 }
 
-// KAYIT İŞLEMİ (KOTA KONTROLÜ EKLENDİ)
+// KAYIT İŞLEMİ (KOTA KONTROLÜ + BİLDİRİM)
 async function saveBooking() {
     const lab = document.getElementById("labSelect").value, date = document.getElementById("resDate").value;
     if (selectedCells.length === 0) return alert("Lütfen tablodan seçim yapınız!");
 
-    // 1. KOTA HESABI (YENİ EKLEME)
+    // 1. KOTA HESABI
     let proposedShort = 0;
     let proposedLong = 0;
     const uniqueEquipsCheck = [...new Set(selectedCells.map(s => s.equip))];
-    
     uniqueEquipsCheck.forEach(eq => {
         const type = equipmentTypeMap[eq] || 'short';
-        if (type === 'long') proposedLong += 1; // 1 seçim = 1 blok
-        else {
-            const count = selectedCells.filter(s => s.equip === eq).length;
-            proposedShort += count;
-        }
+        if (type === 'long') proposedLong += 1;
+        else { proposedShort += selectedCells.filter(s => s.equip === eq).length; }
     });
 
     const currentStats = await checkUserQuota(date);
-    if ((currentStats.short + proposedShort) > LIMIT_SHORT_HOURS) {
-        return alert(`⚠️ Kısa süreli cihaz kullanım kotanız doldu! (Haftalık Max: ${LIMIT_SHORT_HOURS} Saat)\nLütfen laboratuvar sorumlusu ile iletişime geçiniz.`);
-    }
-    if ((currentStats.long + proposedLong) > LIMIT_LONG_BLOCKS) {
-        return alert(`⚠️ Uzun süreli cihaz kullanım kotanız doldu! (Haftalık Max: ${LIMIT_LONG_BLOCKS} Blok)\nLütfen laboratuvar sorumlusu ile iletişime geçiniz.`);
-    }
+    if ((currentStats.short + proposedShort) > LIMIT_SHORT_HOURS) return alert(`⚠️ Kısa süreli cihaz kullanım kotanız doldu!`);
+    if ((currentStats.long + proposedLong) > LIMIT_LONG_BLOCKS) return alert(`⚠️ Uzun süreli cihaz kullanım kotanız doldu!`);
 
     // 2. ÇAKIŞMA KONTROLÜ
     const res = await databases.listDocuments(DB_ID, COLL_APP, [Query.equal('date', date), Query.equal('lab', lab)]);
@@ -515,18 +511,19 @@ async function saveBooking() {
         }
         
         const isAdmin = SUPER_ADMINS.includes(currentUser.email);
+        
+        // MAİL KURALI 1: Admin, başkasının randevusunu düzenlerse -> KULLANICIYA GİDER
         if (isAdmin && isEditAction && finalOwner !== currentUser.name) {
-            const userEmail = userMap[finalOwner]?.email || "Bilinmiyor"; if(userEmail !== "Bilinmiyor") sendEmail(userEmail, "Randevunuz Düzenlendi", `${date} tarihindeki randevunuz yönetici tarafından güncellendi.`);
-        } else if (!isAdmin) {
+            const userEmail = userMap[finalOwner]?.email || "Bilinmiyor";
+            if(userEmail !== "Bilinmiyor") sendEmail(userEmail, "Randevunuz Düzenlendi", `${date} tarihindeki randevunuz yönetici tarafından güncellendi.`);
+        } 
+        // MAİL KURALI 2: Öğrenci DÜZENLERSE -> HOCAYA GİDER (Yeni kayıtta gitmez)
+        else if (!isAdmin && isEditAction) {
             const supervisorEmails = LAB_EMAILS[lab]; 
-            // SADECE DEĞİŞİKLİK VE İPTALDE MAİL GİTSİN (Yeni Kayıtta Gitmesin istendiğinde burayı düzenledik)
-            if(isEditAction) {
-                sendEmail(supervisorEmails, `Randevu Düzenlendi`, `${currentUser.name}, ${date} tarihi için işlem yaptı.`);
-            }
+            sendEmail(supervisorEmails, `Randevu Düzenlendi`, `${currentUser.name}, ${date} tarihi için işlem yaptı.`);
         }
 
-        alert("İşlem Başarılı!"); 
-        editingId = null; editingOwner = null; editingHistory = ""; selectedCells = []; 
+        alert("İşlem Başarılı!"); editingId = null; editingOwner = null; editingHistory = ""; selectedCells = []; 
         refreshView(); loadUserData(); if(SUPER_ADMINS.includes(currentUser.email)) loadAdminData();
     } catch (e) { alert("Hata: " + e.message); }
 }
@@ -541,6 +538,7 @@ async function editRes(id, lab, date, equipStr, timeStr, owner, history) {
     await refreshView(); document.getElementById("bookingPage").classList.remove("hidden"); document.getElementById("bookingPage").scrollIntoView({ behavior: 'smooth' });
 }
 
+// SİLME İŞLEMİ (BİLDİRİM EKLENDİ)
 async function deleteRes(id, isAdmin) { 
     if(!confirm("Silinsin mi?")) return; 
     try {
@@ -549,11 +547,15 @@ async function deleteRes(id, isAdmin) {
 
         await databases.deleteDocument(DB_ID, COLL_APP, id);
         
+        // MAİL KURALI 1: Admin, başkasının randevusunu silerse -> KULLANICIYA GİDER
         if (isAdmin && doc.name !== currentUser.name) {
             const userEmail = userMap[doc.name]?.email || "Bilinmiyor";
             if(userEmail !== "Bilinmiyor") sendEmail(userEmail, "Randevu İptali", `${doc.date} tarihindeki randevunuz yönetici tarafından iptal edildi.`);
-        } else if (!isAdmin) {
-            const supervisorEmails = LAB_EMAILS[doc.lab]; sendEmail(supervisorEmails, "Randevu İptali", `${doc.name}, ${doc.date} tarihindeki randevusunu iptal etti.`);
+        } 
+        // MAİL KURALI 2: Öğrenci İPTAL EDERSE -> HOCAYA GİDER
+        else if (!isAdmin) {
+            const supervisorEmails = LAB_EMAILS[doc.lab];
+            sendEmail(supervisorEmails, "Randevu İptali", `${doc.name}, ${doc.date} tarihindeki randevusunu iptal etti.`);
         }
 
         isAdmin ? loadAdminData() : loadUserData(); refreshView();
