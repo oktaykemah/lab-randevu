@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>İKÇÜ Lab Randevu - v2.0.6</title>
+  <title>İKÇÜ Lab Randevu - v2.0.7</title>
   <script src="https://cdn.jsdelivr.net/npm/appwrite@13.0.1"></script>
   <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -98,7 +98,7 @@
 </head>
 <body>
 
-<div class="version-tag">v2.0.6</div>
+<div class="version-tag">v2.0.7</div>
 
 <div id="app" class="box">
     <div id="loginPage" class="login-wrapper">
@@ -782,6 +782,12 @@ async function handleRegister() {
 async function loadAdminCalendar() { const lab = document.getElementById("adminViewLab").value, date = document.getElementById("adminViewDate").value; const eqs = await databases.listDocuments(DB_ID, COLL_EQUIP, [Query.equal('lab', lab)]); await renderCalendar(lab, date, "adminCalHead", "adminCalBody", true, eqs.documents); }
 function switchPage(id) { document.querySelectorAll('.box > div').forEach(d => d.classList.add('hidden')); document.getElementById(id).classList.remove('hidden'); }
 async function logout() { await account.deleteSession('current'); location.reload(); }
+
+function formatDate(dateStr) {
+    if (!dateStr) return "";
+    const d = new Date(dateStr);
+    return `${d.getDate().toString().padStart(2, '0')}.${(d.getMonth() + 1).toString().padStart(2, '0')}.${d.getFullYear()}`;
+}
 
 window.onload = async () => {
     const urlParams = new URLSearchParams(window.location.search);
