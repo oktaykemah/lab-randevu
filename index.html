@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IKC Lab Randevu Sistemi v2.0.1</title>
+    <title>IKC Lab Randevu Sistemi v2.0.11</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
     <script type="text/javascript">
         (function() {
             // BURAYA KENDİ PUBLIC KEY'İNİZİ GİRİN
-            emailjs.init("YOUR_PUBLIC_KEY");
+            emailjs.init("GoSBRo0EMVNlIyZSK");
         })();
     </script>
 
@@ -272,7 +272,6 @@
                 
                 if(user.role === 'admin') {
                     document.getElementById('adminDashboard').style.display = 'block';
-                    // İlk açılışta boş gelebilir, admin seçim yapmalı
                 } else {
                     document.getElementById('userDashboard').style.display = 'block';
                     document.getElementById('userNameDisplay').innerText = user.name;
@@ -341,7 +340,7 @@
             });
         }
 
-        // --- KOTA VE RANDEVU KAYIT (v2.0.0 MANTIĞI) ---
+        // --- KOTA VE RANDEVU KAYIT (v2.0.0 AKILLI KAYIT SİSTEMİ) ---
         function bookAppointment(time, isShort) {
             // Kota Kontrolü
             if(isShort) {
@@ -528,11 +527,11 @@
             tbody.innerHTML = "";
             appointments.forEach(a => {
                 const u = users.find(u => u.id === a.userId);
-                // GÜNCELLEME BURADA: a.lab ile laboratuvar adını yazdırıyoruz.
+                // YENİ EKLENEN KISIM (LABORATUVAR HÜCRESİ)
                 tbody.innerHTML += `<tr>
                     <td>${a.id}</td>
                     <td>${a.userName} <br><small class="text-muted">${u ? u.phone : '-'}</small></td>
-                    <td>${a.lab}</td>
+                    <td>${a.lab}</td> 
                     <td>${a.device}</td>
                     <td>${a.date} <br> ${a.time}</td>
                     <td><button class="btn btn-sm btn-danger" onclick="adminCancelAppInList('${a.id}')"><i class="fas fa-trash"></i> Sil</button></td>
