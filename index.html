@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>IKC Lab Booking - v1.9.6</title>
+  <title>IKC Lab Booking - v1.9.7</title>
   <script src="https://cdn.jsdelivr.net/npm/appwrite@13.0.1"></script>
   <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
   <style>
@@ -70,7 +70,7 @@
 </head>
 <body>
 
-<div class="version-tag">v1.9.6</div>
+<div class="version-tag">v1.9.7</div>
 
 <div id="app" class="box">
     <div id="loginPage">
@@ -229,29 +229,15 @@ function getHoliday(dateStr) {
     return h[monthDay] || r2026[monthDay] || null;
 }
 
-// ZAMAN KONTROLÜ (YENİLENEN MANTIK)
+// ZAMAN KONTROLÜ (YENİ KURALLAR)
 function canProcess(dateStr, type) {
-    // 1. Admin Override
     if (SUPER_ADMINS.includes(currentUser?.email)) return true;
-
-    const targetDate = new Date(dateStr);
-    targetDate.setHours(0, 0, 0, 0); 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0); 
-
-    // 2. Booking Logic (Sadece gelecek)
+    const targetDate = new Date(dateStr); targetDate.setHours(0, 0, 0, 0); 
+    const today = new Date(); today.setHours(0, 0, 0, 0); 
     if (type === 'booking') return targetDate > today;
-
-    // Farkı gün olarak hesapla
-    const diffTime = targetDate - today;
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-    // 3. İptal (Delete): En geç 1 gün önce 23:59 (Bugün, randevu gününden en az 1 gün önce olmalı)
-    if (type === 'delete') return diffDays >= 1;
-
-    // 4. Düzenleme (Edit): En geç 2 gün önce 23:59
-    if (type === 'edit') return diffDays >= 2;
-
+    const diffTime = targetDate - today; const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    if (type === 'delete') return diffDays >= 1; // 1 gün önceye kadar
+    if (type === 'edit') return diffDays >= 2; // 2 gün önceye kadar
     return false;
 }
 
@@ -406,6 +392,7 @@ async function renderCalendar(lab, date, headId, bodyId, isAdminView, devices) {
     }).join('');
 }
 
+// KAYIT İŞLEMİ (BİLDİRİM MANTIĞI EKLENDİ)
 async function saveBooking() {
     const lab = document.getElementById("labSelect").value, date = document.getElementById("resDate").value;
     if (selectedCells.length === 0) return alert("Lütfen tablodan seçim yapınız!");
@@ -423,10 +410,16 @@ async function saveBooking() {
         }
         
         const isAdmin = SUPER_ADMINS.includes(currentUser.email);
+        const userDetails = userMap[finalOwner] || { id: "Bilinmiyor", phone: "Bilinmiyor", email: "Bilinmiyor" };
+
         if (isAdmin && isEditAction && finalOwner !== currentUser.name) {
-            const userEmail = userMap[finalOwner]?.email || "Bilinmiyor"; if(userEmail !== "Bilinmiyor") sendEmail(userEmail, "Randevunuz Düzenlendi", `${date} tarihindeki randevunuz yönetici tarafından güncellendi.`);
-        } else if (!isAdmin) {
-            const supervisorEmails = LAB_EMAILS[lab]; sendEmail(supervisorEmails, `Yeni Randevu: ${isEditAction ? "düzenlendi" : "oluşturuldu"}`, `${currentUser.name}, ${date} tarihi için işlem yaptı.`);
+            // Admin düzenledi -> Kullanıcıya ID ve Tel olmadan düz bilgi
+            if(userDetails.email !== "Bilinmiyor") sendEmail(userDetails.email, "Randevunuz Düzenlendi", `${date} tarihindeki randevunuz yönetici tarafından güncellendi.`);
+        } else if (!isAdmin && isEditAction) {
+            // Kullanıcı düzenledi -> Hocaya ID ve Tel ile bilgi
+            const supervisorEmails = LAB_EMAILS[lab]; 
+            const msg = `Kullanıcı: ${finalOwner}\nID: ${userDetails.id}\nTel: ${userDetails.phone}\nİşlem: Düzenleme\nTarih: ${date}`;
+            sendEmail(supervisorEmails, "Randevu Düzenlendi", msg);
         }
 
         alert("İşlem Başarılı!"); editingId = null; editingOwner = null; editingHistory = ""; selectedCells = []; 
@@ -444,22 +437,25 @@ async function editRes(id, lab, date, equipStr, timeStr, owner, history) {
     await refreshView(); document.getElementById("bookingPage").classList.remove("hidden"); document.getElementById("bookingPage").scrollIntoView({ behavior: 'smooth' });
 }
 
+// SİLME İŞLEMİ (BİLDİRİM MANTIĞI EKLENDİ)
 async function deleteRes(id, isAdmin) { 
     if(!confirm("Silinsin mi?")) return; 
-    // GÜVENLİK KONTROLÜ (UI dışında fonksiyon içi kontrol)
     try {
         const doc = await databases.getDocument(DB_ID, COLL_APP, id);
-        if (!isAdmin && !canProcess(doc.date, 'delete')) {
-            alert("İptal süresi dolmuştur (En geç 1 gün öncesine kadar).");
-            return;
-        }
+        if (!isAdmin && !canProcess(doc.date, 'delete')) { alert("İptal süresi dolmuştur."); return; }
 
         await databases.deleteDocument(DB_ID, COLL_APP, id);
         
+        const userDetails = userMap[doc.name] || { id: "Bilinmiyor", phone: "Bilinmiyor", email: "Bilinmiyor" };
+
         if (isAdmin && doc.name !== currentUser.name) {
-            const userEmail = userMap[doc.name]?.email || "Bilinmiyor"; if(userEmail !== "Bilinmiyor") sendEmail(userEmail, "Randevu İptali", `${doc.date} tarihindeki randevunuz yönetici tarafından iptal edildi.`);
+            // Admin iptal etti -> Kullanıcıya bilgi
+            if(userDetails.email !== "Bilinmiyor") sendEmail(userDetails.email, "Randevu İptali", `${doc.date} tarihindeki randevunuz yönetici tarafından iptal edildi.`);
         } else if (!isAdmin) {
-            const supervisorEmails = LAB_EMAILS[doc.lab]; sendEmail(supervisorEmails, "Randevu İptali", `${doc.name}, ${doc.date} tarihindeki randevusunu iptal etti.`);
+            // Kullanıcı iptal etti -> Hocaya ID/Tel ile bilgi
+            const supervisorEmails = LAB_EMAILS[doc.lab];
+            const msg = `Kullanıcı: ${doc.name}\nID: ${userDetails.id}\nTel: ${userDetails.phone}\nİşlem: İptal\nTarih: ${doc.date}`;
+            sendEmail(supervisorEmails, "Randevu İptali", msg);
         }
         isAdmin ? loadAdminData() : loadUserData(); refreshView();
     } catch(e) { alert("Hata: " + e.message); }
@@ -488,10 +484,7 @@ async function loadUserData() {
     const res = await databases.listDocuments(DB_ID, COLL_APP, [Query.equal('name', currentUser.name), Query.orderDesc('$createdAt')]);
     document.getElementById("userBody").innerHTML = res.documents.map(doc => {
         appointmentsMap[doc.$id] = doc;
-        // BUTON DURUMLARI (YENİ KURALLAR)
-        const canEdit = canProcess(doc.date, 'edit');
-        const canDelete = canProcess(doc.date, 'delete');
-        
+        const canEdit = canProcess(doc.date, 'edit'); const canDelete = canProcess(doc.date, 'delete');
         return `<tr><td><b>${doc.lab}</b><br>${doc.equipment}</td><td>${formatDate(doc.date)}<br>${doc.time}</td><td><button class="info-btn" onclick="showDetails('${doc.$id}')">i</button><button class="edit-btn" ${canEdit ? '' : 'disabled'} onclick="editRes('${doc.$id}', '${doc.lab}', '${doc.date}', '${doc.equipment}', '${doc.time}', '${doc.name}', \`${doc.history || ''}\`)">${canEdit ? 'Düz.' : '-'}</button><button class="delete-btn" ${canDelete ? '' : 'disabled'} onclick="deleteRes('${doc.$id}', false)">${canDelete ? 'İptal' : '-'}</button></td></tr>`;
     }).join('');
 }
