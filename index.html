@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>İKÇÜ Lab Randevu - v2.0.4</title>
+  <title>İKÇÜ Lab Randevu - v2.0.5</title>
   <script src="https://cdn.jsdelivr.net/npm/appwrite@13.0.1"></script>
   <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -98,7 +98,7 @@
 </head>
 <body>
 
-<div class="version-tag">v2.0.4</div>
+<div class="version-tag">v2.0.5</div>
 
 <div id="app" class="box">
     <div id="loginPage" class="login-wrapper">
@@ -692,6 +692,9 @@ window.openUserTab = function(tabName) {
 
     document.getElementById('tab-' + tabName).classList.remove('hidden');
     document.getElementById('btn-' + tabName).classList.add('active');
+    
+    // GÜNCELLEME: TAB DEĞİŞİNCE VERİYİ YENİLE
+    if(tabName === 'myRes') loadUserData();
 }
 
 // SEKME GEÇİŞ FONKSİYONU - ADMIN
@@ -704,24 +707,45 @@ window.openAdminTab = function(tabName) {
     
     document.getElementById('adm-' + tabName).classList.remove('hidden');
     document.getElementById('btn-adm-' + tabName).classList.add('active');
+    
+    // GÜNCELLEME: TAB DEĞİŞİNCE VERİYİ YENİLE
+    if(tabName === 'list') loadAdminData();
 }
 
 async function loadAdminData() {
-    const res = await databases.listDocuments(DB_ID, COLL_APP, [Query.orderDesc('$createdAt')]);
-    document.getElementById("adminBody").innerHTML = res.documents.map(doc => {
-        appointmentsMap[doc.$id] = doc; if (doc.name === "LAB_KAPALI" || doc.name === "LAB_ACIK") return ""; 
-        const past = !canProcess(doc.date, 'edit'); const userDetail = userMap[doc.name] || { id: '-', phone: '-' };
-        return `<tr><td>${userDetail.id}</td><td>${doc.name}</td><td>${userDetail.phone}</td><td>${doc.lab}</td><td>${doc.equipment}</td><td>${formatDate(doc.date)} / ${doc.time}</td><td><button class="info-btn" onclick="showDetails('${doc.$id}')">i</button><button class="edit-btn" ${past ? 'disabled' : ''} onclick="editRes('${doc.$id}', '${doc.lab}', '${doc.date}', '${doc.equipment}', '${doc.time}', '${doc.name}', \`${doc.history || ''}\`)">${past ? '-' : 'Düz.'}</button><button class="delete-btn" ${past ? 'disabled' : ''} onclick="deleteRes('${doc.$id}', true)">${past ? '-' : 'Sil'}</button></td></tr>`;
-    }).join('');
+    try {
+        // HATA AYIKLAMA: Konsola yazdır
+        console.log("Admin verisi yükleniyor...");
+        const res = await databases.listDocuments(DB_ID, COLL_APP, [Query.orderDesc('$createdAt')]);
+        console.log("Admin verisi geldi:", res.documents);
+        
+        document.getElementById("adminBody").innerHTML = res.documents.map(doc => {
+            appointmentsMap[doc.$id] = doc; if (doc.name === "LAB_KAPALI" || doc.name === "LAB_ACIK") return ""; 
+            const past = !canProcess(doc.date, 'edit'); const userDetail = userMap[doc.name] || { id: '-', phone: '-' };
+            return `<tr><td>${userDetail.id}</td><td>${doc.name}</td><td>${userDetail.phone}</td><td>${doc.lab}</td><td>${doc.equipment}</td><td>${formatDate(doc.date)} / ${doc.time}</td><td><button class="info-btn" onclick="showDetails('${doc.$id}')">i</button><button class="edit-btn" ${past ? 'disabled' : ''} onclick="editRes('${doc.$id}', '${doc.lab}', '${doc.date}', '${doc.equipment}', '${doc.time}', '${doc.name}', \`${doc.history || ''}\`)">${past ? '-' : 'Düz.'}</button><button class="delete-btn" ${past ? 'disabled' : ''} onclick="deleteRes('${doc.$id}', true)">${past ? '-' : 'Sil'}</button></td></tr>`;
+        }).join('');
+    } catch(e) {
+        console.error("Admin veri hatası:", e);
+        document.getElementById("adminBody").innerHTML = `<tr><td colspan="7" style="color:red; text-align:center;">Veri yüklenemedi: ${e.message} (İndeks eksik olabilir)</td></tr>`;
+    }
 }
 
 async function loadUserData() {
-    const res = await databases.listDocuments(DB_ID, COLL_APP, [Query.equal('name', currentUser.name), Query.orderDesc('$createdAt')]);
-    document.getElementById("userBody").innerHTML = res.documents.map(doc => {
-        appointmentsMap[doc.$id] = doc;
-        const canEdit = canProcess(doc.date, 'edit'); const canDelete = canProcess(doc.date, 'delete');
-        return `<tr><td><b>${doc.lab}</b><br>${doc.equipment}</td><td>${formatDate(doc.date)}<br>${doc.time}</td><td><button class="info-btn" onclick="showDetails('${doc.$id}')">i</button><button class="edit-btn" ${canEdit ? '' : 'disabled'} onclick="editRes('${doc.$id}', '${doc.lab}', '${doc.date}', '${doc.equipment}', '${doc.time}', '${doc.name}', \`${doc.history || ''}\`)">${canEdit ? 'Düz.' : '-'}</button><button class="delete-btn" ${canDelete ? '' : 'disabled'} onclick="deleteRes('${doc.$id}', false)">${canDelete ? 'İptal' : '-'}</button></td></tr>`;
-    }).join('');
+    try {
+        // HATA AYIKLAMA: Konsola yazdır
+        console.log("Kullanıcı verisi yükleniyor...", currentUser.name);
+        const res = await databases.listDocuments(DB_ID, COLL_APP, [Query.equal('name', currentUser.name), Query.orderDesc('$createdAt')]);
+        console.log("Kullanıcı verisi geldi:", res.documents);
+
+        document.getElementById("userBody").innerHTML = res.documents.map(doc => {
+            appointmentsMap[doc.$id] = doc;
+            const canEdit = canProcess(doc.date, 'edit'); const canDelete = canProcess(doc.date, 'delete');
+            return `<tr><td><b>${doc.lab}</b><br>${doc.equipment}</td><td>${formatDate(doc.date)}<br>${doc.time}</td><td><button class="info-btn" onclick="showDetails('${doc.$id}')">i</button><button class="edit-btn" ${canEdit ? '' : 'disabled'} onclick="editRes('${doc.$id}', '${doc.lab}', '${doc.date}', '${doc.equipment}', '${doc.time}', '${doc.name}', \`${doc.history || ''}\`)">${canEdit ? 'Düz.' : '-'}</button><button class="delete-btn" ${canDelete ? '' : 'disabled'} onclick="deleteRes('${doc.$id}', false)">${canDelete ? 'İptal' : '-'}</button></td></tr>`;
+        }).join('');
+    } catch(e) {
+        console.error("Kullanıcı veri hatası:", e);
+        document.getElementById("userBody").innerHTML = `<tr><td colspan="3" style="color:red; text-align:center;">Veri yüklenemedi: ${e.message} (İndeks eksik olabilir)</td></tr>`;
+    }
 }
 
 async function checkSession() {
