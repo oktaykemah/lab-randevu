@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>İKÇÜ Lab Randevu - v2.0.3</title>
+  <title>İKÇÜ Lab Randevu - v2.0.4</title>
   <script src="https://cdn.jsdelivr.net/npm/appwrite@13.0.1"></script>
   <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -35,8 +35,8 @@
     input:focus, select:focus { border-color: var(--primary); outline: none; box-shadow: 0 0 0 3px rgba(0,102,204,0.1); }
     
     /* SEKME (TABS) YAPISI */
-    .tab-nav { display: flex; border-bottom: 2px solid #eee; margin-bottom: 20px; }
-    .tab-btn { flex: 1; padding: 15px; background: none; border: none; font-weight: bold; color: #666; cursor: pointer; border-bottom: 3px solid transparent; transition: 0.3s; font-size: 14px; margin-top: 0; border-radius: 8px 8px 0 0; }
+    .tab-nav { display: flex; border-bottom: 2px solid #eee; margin-bottom: 20px; overflow-x: auto; }
+    .tab-btn { flex: 1; padding: 15px; background: none; border: none; font-weight: bold; color: #666; cursor: pointer; border-bottom: 3px solid transparent; transition: 0.3s; font-size: 13px; margin-top: 0; border-radius: 8px 8px 0 0; white-space: nowrap; }
     .tab-btn:hover { background: #f9f9f9; color: var(--primary); }
     .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); background: #f0f7ff; }
     .tab-btn i { margin-right: 8px; }
@@ -98,7 +98,7 @@
 </head>
 <body>
 
-<div class="version-tag">v2.0.3</div>
+<div class="version-tag">v2.0.4</div>
 
 <div id="app" class="box">
     <div id="loginPage" class="login-wrapper">
@@ -229,48 +229,64 @@
             <button onclick="switchPage('bookingPage')" style="background: var(--primary); color: white; border: none; padding: 10px; border-radius: 8px; cursor: pointer;"><i class="fa-solid fa-arrow-left"></i> Panele Dön</button>
         </div>
         
-        <div style="background: #fdfdfd; padding: 20px; border-radius: 10px; margin-top: 20px; border: 1px solid #ddd;">
-            <h3><i class="fa-solid fa-users"></i> Kayıtlı Kullanıcı Havuzu</h3>
-            <div style="max-height: 250px; overflow-y: auto;">
-                <table class="res-table" style="margin-top:0;">
-                    <thead style="background:#f9f9f9; position: sticky; top: 0;"><tr><th>ID</th><th>Ad Soyad</th><th>Telefon</th></tr></thead>
-                    <tbody id="userProfilesBody"></tbody>
-                </table>
+        <div class="tab-nav">
+            <button id="btn-adm-list" class="tab-btn active" onclick="openAdminTab('list')"><i class="fa-solid fa-list"></i> Tüm Randevular</button>
+            <button id="btn-adm-users" class="tab-btn" onclick="openAdminTab('users')"><i class="fa-solid fa-users"></i> Kullanıcılar</button>
+            <button id="btn-adm-equip" class="tab-btn" onclick="openAdminTab('equip')"><i class="fa-solid fa-screwdriver-wrench"></i> Envanter</button>
+            <button id="btn-adm-cal" class="tab-btn" onclick="openAdminTab('cal')"><i class="fa-regular fa-clock"></i> Doluluk/Saatler</button>
+        </div>
+
+        <div id="adm-list" class="tab-content">
+            <h3><i class="fa-solid fa-list"></i> Tüm Randevular Listesi</h3>
+            <table class="res-table">
+                <thead><tr><th>ID</th><th>Kullanıcı</th><th>Tel</th><th>Lab</th><th>Cihaz</th><th>Zaman</th><th>İşlem</th></tr></thead>
+                <tbody id="adminBody"></tbody>
+            </table>
+        </div>
+
+        <div id="adm-users" class="tab-content hidden">
+            <div style="background: #fdfdfd; padding: 20px; border-radius: 10px; border: 1px solid #ddd;">
+                <h3><i class="fa-solid fa-users"></i> Kayıtlı Kullanıcı Havuzu</h3>
+                <div style="max-height: 400px; overflow-y: auto;">
+                    <table class="res-table" style="margin-top:0;">
+                        <thead style="background:#f9f9f9; position: sticky; top: 0;"><tr><th>ID</th><th>Ad Soyad</th><th>Telefon</th></tr></thead>
+                        <tbody id="userProfilesBody"></tbody>
+                    </table>
+                </div>
             </div>
         </div>
 
-        <div style="background: #fdfdfd; padding: 20px; border-radius: 10px; margin-top: 20px; border: 1px solid #ddd;">
-            <h3><i class="fa-solid fa-screwdriver-wrench"></i> Envanter & Cihaz Yönetimi</h3>
-            <div style="display:flex; gap:10px; margin-bottom: 15px;">
-                <select id="adminLabSelect" onchange="listAdminEquipments()" style="flex:1;"><option value="Malzeme Karakterizasyon Lab.">Karakterizasyon</option><option value="Numune Hazırlama Lab.">Numune Hazırlama</option><option value="Üretim Lab.">Üretim</option></select>
-                <input id="newEquipName" type="text" placeholder="Cihaz Adı" style="flex:1.5;">
-                <select id="newEquipType" style="flex:1;">
-                    <option value="short">Kısa Süreli (Saatlik)</option>
-                    <option value="long">Uzun Süreli (Blok)</option>
-                </select>
-                <button onclick="addEquipmentToDB()" style="flex:0.5; background:var(--primary); color:white; border:none; cursor:pointer;">Ekle</button>
+        <div id="adm-equip" class="tab-content hidden">
+            <div style="background: #fdfdfd; padding: 20px; border-radius: 10px; border: 1px solid #ddd;">
+                <h3><i class="fa-solid fa-screwdriver-wrench"></i> Envanter & Cihaz Yönetimi</h3>
+                <div style="display:flex; gap:10px; margin-bottom: 15px;">
+                    <select id="adminLabSelect" onchange="listAdminEquipments()" style="flex:1;"><option value="Malzeme Karakterizasyon Lab.">Karakterizasyon</option><option value="Numune Hazırlama Lab.">Numune Hazırlama</option><option value="Üretim Lab.">Üretim</option></select>
+                    <input id="newEquipName" type="text" placeholder="Cihaz Adı" style="flex:1.5;">
+                    <select id="newEquipType" style="flex:1;">
+                        <option value="short">Kısa Süreli (Saatlik)</option>
+                        <option value="long">Uzun Süreli (Blok)</option>
+                    </select>
+                    <button onclick="addEquipmentToDB()" style="flex:0.5; background:var(--primary); color:white; border:none; cursor:pointer;">Ekle</button>
+                </div>
+                <div id="adminEquipList"></div>
+                <button id="saveEnvanterBtn" class="save-envanter-btn hidden" onclick="saveEnvanterChanges()">Envanter Değişikliklerini Kaydet</button>
             </div>
-            <div id="adminEquipList"></div>
-            <button id="saveEnvanterBtn" class="save-envanter-btn hidden" onclick="saveEnvanterChanges()">Envanter Değişikliklerini Kaydet</button>
         </div>
         
-        <div style="background: #f0f4f8; padding: 15px; border-radius: 10px; margin-top: 20px; border: 1px solid #d1d9e0;">
-            <h3><i class="fa-regular fa-clock"></i> Doluluk İzleme & Saat Yönetimi</h3>
-            <p style="font-size:11px; color:#666;">* Admin: Boş/Açık hücreleri kapatabilir, kapalı hücreleri açabilirsiniz. Değişiklikler <b>turuncu</b> görünür.</p>
-            <div style="display:flex; gap:10px; align-items: center;">
-                <select id="adminViewLab" onchange="loadAdminCalendar()" style="flex:2;"><option value="Malzeme Karakterizasyon Lab.">Malzeme Karakterizasyon Lab.</option><option value="Numune Hazırlama Lab.">Numune Hazırlama Lab.</option><option value="Üretim Lab.">Üretim Lab.</option></select>
-                <input id="adminViewDate" type="date" onchange="loadAdminCalendar()" style="flex:1;">
-                <button onclick="refreshAdminTable()" class="refresh-btn" style="flex:0.5;">🔄 Yenile</button>
+        <div id="adm-cal" class="tab-content hidden">
+            <div style="background: #f0f4f8; padding: 15px; border-radius: 10px; border: 1px solid #d1d9e0;">
+                <h3><i class="fa-regular fa-clock"></i> Doluluk İzleme & Saat Yönetimi</h3>
+                <p style="font-size:11px; color:#666;">* Admin: Boş/Açık hücreleri kapatabilir, kapalı hücreleri açabilirsiniz. Değişiklikler <b>turuncu</b> görünür.</p>
+                <div style="display:flex; gap:10px; align-items: center;">
+                    <select id="adminViewLab" onchange="loadAdminCalendar()" style="flex:2;"><option value="Malzeme Karakterizasyon Lab.">Malzeme Karakterizasyon Lab.</option><option value="Numune Hazırlama Lab.">Numune Hazırlama Lab.</option><option value="Üretim Lab.">Üretim Lab.</option></select>
+                    <input id="adminViewDate" type="date" onchange="loadAdminCalendar()" style="flex:1;">
+                    <button onclick="refreshAdminTable()" class="refresh-btn" style="flex:0.5;">🔄 Yenile</button>
+                </div>
+                <div class="calendar-container"><table class="cal-table"><thead id="adminCalHead"></thead><tbody id="adminCalBody"></tbody></table></div>
+                <button id="saveAdminCalBtn" class="save-envanter-btn hidden" onclick="saveAdminCalendarChanges()">Tablo Değişikliklerini Kaydet</button>
             </div>
-            <div class="calendar-container"><table class="cal-table"><thead id="adminCalHead"></thead><tbody id="adminCalBody"></tbody></table></div>
-            <button id="saveAdminCalBtn" class="save-envanter-btn hidden" onclick="saveAdminCalendarChanges()">Tablo Değişikliklerini Kaydet</button>
         </div>
         
-        <h3><i class="fa-solid fa-list"></i> Tüm Randevular</h3>
-        <table class="res-table">
-            <thead><tr><th>ID</th><th>Kullanıcı</th><th>Tel</th><th>Lab</th><th>Cihaz</th><th>Zaman</th><th>İşlem</th></tr></thead>
-            <tbody id="adminBody"></tbody>
-        </table>
         <button onclick="logout()" style="background:#666; color:white; margin-top:20px; width:auto; padding:10px 20px;"><i class="fa-solid fa-right-from-bracket"></i> Güvenli Çıkış</button>
     </div>
 
@@ -667,9 +683,7 @@ window.showDetails = function(id) {
 }
 window.closeModal = function() { document.getElementById("detailModal").classList.remove("active"); }
 
-function formatDate(dateStr) { if(!dateStr) return ""; const d = new Date(dateStr); return `${d.getDate().toString().padStart(2, '0')}.${(d.getMonth() + 1).toString().padStart(2, '0')}.${d.getFullYear()}`; }
-
-// SEKME GEÇİŞ FONKSİYONU
+// SEKME GEÇİŞ FONKSİYONU - USER
 window.openUserTab = function(tabName) {
     document.getElementById('tab-makeRes').classList.add('hidden');
     document.getElementById('tab-myRes').classList.add('hidden');
@@ -678,6 +692,18 @@ window.openUserTab = function(tabName) {
 
     document.getElementById('tab-' + tabName).classList.remove('hidden');
     document.getElementById('btn-' + tabName).classList.add('active');
+}
+
+// SEKME GEÇİŞ FONKSİYONU - ADMIN
+window.openAdminTab = function(tabName) {
+    const tabs = ['list', 'users', 'equip', 'cal'];
+    tabs.forEach(t => {
+        document.getElementById('adm-' + t).classList.add('hidden');
+        document.getElementById('btn-adm-' + t).classList.remove('active');
+    });
+    
+    document.getElementById('adm-' + tabName).classList.remove('hidden');
+    document.getElementById('btn-adm-' + tabName).classList.add('active');
 }
 
 async function loadAdminData() {
