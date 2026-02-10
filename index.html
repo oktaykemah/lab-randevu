@@ -1,635 +1,583 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="tr">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>IKC Lab Booking - v2.0.0</title>
-  <script src="https://cdn.jsdelivr.net/npm/appwrite@13.0.1"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
-  <style>
-    :root { --primary: #0066cc; --admin: #2c3e50; --danger: #e74c3c; --success: #27ae60; --warning: #f39c12; --info: #17a2b8; --occupied-other: #fdeaea; --occupied-me: #e3f2fd; --selected: #218838; --blocked: #636e72; --pending: #ff9f43; --holiday: #fff3e0; }
-    body { font-family: 'Segoe UI', sans-serif; background: #f4f7f9; margin: 0; padding: 20px; display: flex; justify-content: center; min-height: 100vh; position: relative; }
-    
-    .version-tag { position: fixed; bottom: 10px; left: 10px; font-size: 11px; color: #888; z-index: 1000; font-weight: bold; background: rgba(255,255,255,0.7); padding: 2px 5px; border-radius: 4px; }
-    .box { background: #fff; padding: 25px; width: 100%; max-width: 1200px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); position: relative; z-index: 1; }
-    .hidden { display: none !important; }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IKC Lab Randevu Sistemi v2.0.1</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+    <script type="text/javascript">
+        (function() {
+            // BURAYA KENDİ PUBLIC KEY'İNİZİ GİRİN
+            emailjs.init("YOUR_PUBLIC_KEY");
+        })();
+    </script>
 
-    h2, h3 { color: #333; border-bottom: 2px solid #eee; padding-bottom: 10px; margin-top: 0; }
-    label { font-weight: bold; font-size: 13px; display: block; margin-top: 15px; color: #555; }
-    select, input, button { width: 100%; padding: 10px; margin-top: 8px; border-radius: 8px; border: 1px solid #ddd; box-sizing: border-box; }
-    
-    /* TAKVİM VE HÜCRELER */
-    .calendar-container { overflow-x: auto; margin-top: 20px; border: 1px solid #ddd; border-radius: 8px; }
-    .cal-table { width: 100%; border-collapse: collapse; background: white; min-width: 600px; }
-    .cal-table th, .cal-table td { border: 1px solid #eee; padding: 12px; text-align: center; font-size: 12px; transition: 0.2s; user-select: none; }
-    .cal-table th { background: #f8f9fa; color: #666; }
-    
-    .slot-free { color: var(--success); font-weight: bold; cursor: pointer; }
-    .slot-free:hover { background-color: #f0fff4; }
-    .slot-selected { background-color: var(--success) !important; color: white !important; font-weight: bold; cursor: pointer; border: 1px solid #1e7e34 !important; }
-    
-    .slot-me { background: var(--occupied-me); color: var(--primary); font-weight: bold; cursor: not-allowed; }
-    .slot-other { background: var(--occupied-other); color: var(--danger); font-weight: bold; cursor: not-allowed; }
-    .slot-inactive { background: #f2f2f2; color: #a0a0a0; font-style: italic; font-weight: bold; cursor: not-allowed; }
-    
-    /* ADMİN BLOKLAMA & BEKLEYEN DEĞİŞİKLİK */
-    .slot-blocked { background: var(--blocked); color: white; font-weight: bold; cursor: not-allowed; }
-    .slot-pending { background: var(--pending) !important; color: white !important; border: 2px dashed #e67e22 !important; cursor: pointer; }
-    .slot-admin-clickable { cursor: pointer !important; }
-    .slot-admin-clickable:hover { opacity: 0.8; }
-
-    .main-btn { background: var(--primary); color: white; border: none; font-weight: bold; cursor: pointer; transition: 0.3s; margin-top: 20px; }
-    .save-envanter-btn { background: var(--success); color: white; border: none; padding: 12px; border-radius: 8px; cursor: pointer; margin-top: 15px; font-weight: bold; width: 100%; }
-    .refresh-btn { background: #6c757d; color: white; border: none; padding: 10px; border-radius: 8px; cursor: pointer; font-weight: bold; margin-top: 8px; }
-    
-    .delete-btn { background: var(--danger); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 11px; }
-    .delete-btn:disabled { background: #e0e0e0; cursor: not-allowed; color: #999; }
-    
-    .edit-btn { background: var(--warning); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 11px; margin-right: 3px; }
-    .edit-btn:disabled { background: #e0e0e0; cursor: not-allowed; color: #999; }
-
-    .info-btn { background: var(--info); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 11px; margin-right: 3px; font-weight: bold; }
-    
-    table.res-table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 13px; }
-    .res-table th, .res-table td { text-align: left; padding: 10px; border-bottom: 1px solid #eee; }
-    .res-table th { background: #f8f9fa; color: #555; }
-    
-    .info-card { background: #e3f2fd; padding: 12px; border-radius: 8px; color: #0d47a1; font-size: 13px; font-weight: bold; margin-bottom: 15px; border-left: 5px solid var(--primary); line-height: 1.4; }
-    
-    /* KOTA KARTI STİLİ */
-    .quota-card { background: #fff3cd; padding: 12px; border-radius: 8px; color: #856404; font-size: 13px; font-weight: bold; margin-bottom: 15px; border-left: 5px solid #ffc107; display: flex; justify-content: space-between; align-items: center; }
-    
-    .holiday-msg { background: var(--holiday); color: #e65100; padding: 15px; border-radius: 8px; text-align: center; font-weight: bold; margin-bottom: 15px; border: 1px solid #ffe0b2; }
-    .verify-msg { padding: 15px; border-radius: 8px; text-align: center; font-weight: bold; margin-bottom: 15px; font-size: 14px; }
-    .verify-success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
-    .verify-error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
-
-    /* MODAL */
-    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 9999; }
-    .modal.active { display: flex !important; }
-    .modal-content { background: white; padding: 25px; border-radius: 10px; width: 90%; max-width: 500px; box-shadow: 0 10px 25px rgba(0,0,0,0.3); position: relative; }
-    .close-modal { position: absolute; top: 10px; right: 15px; font-size: 24px; cursor: pointer; font-weight: bold; color: #666; }
-    .log-box { background: #f8f9fa; padding: 10px; border: 1px solid #ddd; border-radius: 5px; max-height: 200px; overflow-y: auto; font-family: monospace; font-size: 11px; margin-top: 10px; white-space: pre-wrap; color: #333; }
-  </style>
+    <style>
+        body { background-color: #f0f2f5; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .login-container { max-width: 400px; margin: 80px auto; padding: 30px; background: white; border-radius: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        .dashboard-container { display: none; padding: 20px; }
+        
+        /* Slot Stilleri */
+        .slot-box { 
+            cursor: pointer; transition: all 0.2s; text-align: center; padding: 15px 10px; 
+            border-radius: 8px; border: 1px solid #dee2e6; margin-bottom: 10px; font-weight: 500;
+        }
+        .slot-box:hover { transform: translateY(-3px); box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        .slot-empty { background-color: #e9ecef; color: #495057; border-left: 5px solid #28a745; }
+        .slot-full { background-color: #ffebee; color: #c62828; border-left: 5px solid #dc3545; cursor: not-allowed; }
+        .slot-my { background-color: #e8f5e9; color: #2e7d32; border-left: 5px solid #198754; }
+        .slot-admin-block { background-color: #343a40; color: #f8f9fa; border-left: 5px solid #000; cursor: not-allowed; opacity: 0.8; }
+        
+        /* Lab Header */
+        .lab-header { background: linear-gradient(45deg, #0d6efd, #0043a8); color: white; padding: 20px; border-radius: 12px; margin-bottom: 25px; }
+    </style>
 </head>
 <body>
 
-<div class="version-tag">v2.0.0</div>
-
-<div id="app" class="box">
-    <div id="loginPage">
-        <h2>IKC Lab Randevu</h2>
-        <div id="verifyMessage" class="hidden verify-msg"></div>
-        <select id="loginDomain"><option value="@ogr.ikc.edu.tr">Öğrenci</option><option value="@ikc.edu.tr">Akademik</option></select>
-        <input id="loginId" type="text" placeholder="ID (Örn: y240219010)">
-        <input id="loginPass" type="password" placeholder="Şifre">
-        <button class="main-btn" onclick="handleLogin()">Giriş Yap</button>
-        <div style="text-align: center; margin-top: 15px;"><a href="#" onclick="switchPage('registerPage')" style="color: var(--primary); text-decoration: none; font-size: 13px;">Yeni Hesap Oluştur</a></div>
-    </div>
-
-    <div id="registerPage" class="hidden">
-        <h2>Yeni Kayıt</h2>
-        <select id="regDomain"><option value="@ogr.ikc.edu.tr">Öğrenci</option><option value="@ikc.edu.tr">Akademik</option></select>
-        <input id="regId" type="text" placeholder="ID (Örn: y240219010)">
-        <input id="regFullName" type="text" placeholder="Ad Soyad">
-        <input id="regPhone" type="tel" placeholder="Telefon No (Örn: 05xxxxxxxxx)">
-        <input id="regPass" type="password" placeholder="Şifre">
-        <button class="main-btn" onclick="handleRegister()">Kayıt Ol</button>
-        <button onclick="switchPage('loginPage')" style="background:none; border:none; color:#666; cursor:pointer;">Geri Dön</button>
-    </div>
-
-    <div id="bookingPage" class="hidden">
-        <h2 id="userGreet">Hoş Geldiniz</h2>
-        <div id="adminLink" class="hidden" style="margin-bottom: 15px;"><button onclick="switchPage('adminPage')" style="background: var(--admin); color: white; padding: 10px; border-radius: 8px; border: none; cursor: pointer; font-weight: bold;">⚠️ Admin Paneline Git</button></div>
-        
-        <div id="quotaDisplay" class="quota-card hidden">
-            <span>Yükleniyor...</span>
-        </div>
-
-        <div id="editModeNotice" class="hidden" style="background: #fff3cd; color: #856404; padding: 10px; border-radius: 8px; margin-bottom: 15px; font-weight: bold; border: 1px solid #ffeeba;">⚠️ Randevu Düzenleme Modundasınız.</div>
-        <div id="labInfoCard" class="info-card hidden"></div>
-
-        <div style="background: #eef6ff; padding: 15px; border-radius: 10px; margin-bottom: 20px;">
-            <label>1. Laboratuvar ve Tarih Seçimi</label>
-            <div style="display:flex; gap:10px;">
-                <select id="labSelect" onchange="refreshView()" style="flex:2;">
-                    <option value="">Seçiniz...</option>
-                    <option value="Malzeme Karakterizasyon Lab.">Malzeme Karakterizasyon Lab.</option>
-                    <option value="Numune Hazırlama Lab.">Numune Hazırlama Lab.</option>
-                    <option value="Üretim Lab.">Üretim Lab.</option>
+    <div id="loginPage" class="container">
+        <div class="login-container text-center">
+            <i class="fas fa-microscope fa-3x text-primary mb-3"></i>
+            <h3 class="mb-4">IKC Lab Randevu</h3>
+            <div class="form-floating mb-3">
+                <select id="userType" class="form-select">
+                    <option value="student">Öğrenci / Akademisyen</option>
+                    <option value="admin">Admin (Yetkili)</option>
                 </select>
-                <input id="resDate" type="date" onchange="refreshView()" style="flex:1;">
+                <label>Kullanıcı Tipi</label>
             </div>
-        </div>
-
-        <div id="statusSection" class="hidden">
-            <div id="holidayNotice" class="holiday-msg hidden"></div>
-            <div id="calendarContent">
-                <h3>Randevu Tablosu</h3>
-                <p style="font-size:12px; color:#666;">* Randevu almak için tablodaki <b>BOŞ</b> kutucuklara tıklayarak (yeşil) seçiniz.</p>
-                <div class="calendar-container"><table class="cal-table"><thead id="calHead"></thead><tbody id="calBody"></tbody></table></div>
-                <button class="main-btn" onclick="saveBooking()">Seçili Randevuyu Kaydet</button>
+            <div class="form-floating mb-3">
+                <input type="text" id="username" class="form-control" placeholder="No">
+                <label>Numara / Kullanıcı Adı</label>
             </div>
+            <div class="form-floating mb-3">
+                <input type="password" id="password" class="form-control" placeholder="Şifre">
+                <label>Şifre</label>
+            </div>
+            <button onclick="login()" class="btn btn-primary w-100 btn-lg">Giriş Yap</button>
+            <div id="loginError" class="text-danger mt-3" style="display:none;"><i class="fas fa-exclamation-circle"></i> Hatalı bilgiler!</div>
         </div>
-        <h3>Randevularım</h3>
-        <table class="res-table"><thead><tr><th>Lab / Cihaz</th><th>Zaman</th><th>İşlem</th></tr></thead><tbody id="userBody"></tbody></table>
-        <button onclick="logout()" style="background:#666; color:white; margin-top:20px;">Çıkış Yap</button>
     </div>
 
-    <div id="adminPage" class="hidden admin-mode">
-        <h2>Süper Admin Paneli</h2>
-        <button onclick="switchPage('bookingPage')" style="background: var(--primary); color: white; border: none; padding: 10px; border-radius: 8px; cursor: pointer;">Randevu Paneline Dön</button>
-        
-        <div style="background: #fdfdfd; padding: 20px; border-radius: 10px; margin-top: 20px; border: 1px solid #ddd;">
-            <h3>Kayıtlı Kullanıcı Havuzu</h3>
-            <div style="max-height: 250px; overflow-y: auto;">
-                <table class="res-table" style="margin-top:0;">
-                    <thead style="background:#f9f9f9; position: sticky; top: 0;"><tr><th>ID</th><th>Ad Soyad</th><th>Telefon</th></tr></thead>
-                    <tbody id="userProfilesBody"></tbody>
-                </table>
-            </div>
-        </div>
+    <div id="userDashboard" class="dashboard-container container-fluid">
+        <div class="row">
+            <div class="col-md-3">
+                <div class="card shadow-sm border-0 mb-3">
+                    <div class="card-body text-center">
+                        <div class="bg-light rounded-circle d-inline-block p-3 mb-2">
+                            <i class="fas fa-user fa-2x text-primary"></i>
+                        </div>
+                        <h5 id="userNameDisplay" class="card-title mb-0">Kullanıcı</h5>
+                        <small id="userRoleDisplay" class="text-muted">Öğrenci</small>
+                        <hr>
+                        <div class="d-grid gap-2">
+                            <button onclick="showSection('newAppointment')" class="btn btn-outline-primary"><i class="fas fa-plus"></i> Randevu Al</button>
+                            <button onclick="showSection('myAppointments')" class="btn btn-outline-secondary"><i class="fas fa-list"></i> Randevularım</button>
+                            <button onclick="logout()" class="btn btn-danger"><i class="fas fa-sign-out-alt"></i> Çıkış</button>
+                        </div>
+                    </div>
+                </div>
 
-        <div style="background: #fdfdfd; padding: 20px; border-radius: 10px; margin-top: 20px; border: 1px solid #ddd;">
-            <h3>Envanter & Cihaz Yönetimi</h3>
-            <div style="display:flex; gap:10px; margin-bottom: 15px;">
-                <select id="adminLabSelect" onchange="listAdminEquipments()" style="flex:1;"><option value="Malzeme Karakterizasyon Lab.">Karakterizasyon</option><option value="Numune Hazırlama Lab.">Numune Hazırlama</option><option value="Üretim Lab.">Üretim</option></select>
-                <input id="newEquipName" type="text" placeholder="Cihaz Adı" style="flex:1.5;">
-                <select id="newEquipType" style="flex:1;">
-                    <option value="short">Kısa Süreli (Saatlik)</option>
-                    <option value="long">Uzun Süreli (Blok)</option>
-                </select>
-                <button onclick="addEquipmentToDB()" style="flex:0.5; background:var(--primary); color:white; border:none; cursor:pointer;">Ekle</button>
+                <div class="card shadow-sm border-0">
+                    <div class="card-header bg-warning text-dark">
+                        <i class="fas fa-clock"></i> Haftalık Kota Durumu
+                    </div>
+                    <div class="card-body">
+                        <h6 class="text-muted">Kısa Süreli Cihazlar</h6>
+                        <div class="progress mb-2" style="height: 20px;">
+                            <div id="progressShort" class="progress-bar bg-success" role="progressbar" style="width: 0%">0/15 Saat</div>
+                        </div>
+                        <h6 class="text-muted mt-3">Uzun Süreli Cihazlar</h6>
+                        <div class="progress" style="height: 20px;">
+                            <div id="progressLong" class="progress-bar bg-info" role="progressbar" style="width: 0%">0/3 Blok</div>
+                        </div>
+                        <small class="text-muted d-block mt-2">*Kotalar her Pazartesi sıfırlanır.</small>
+                    </div>
+                </div>
             </div>
-            <div id="adminEquipList"></div>
-            <button id="saveEnvanterBtn" class="save-envanter-btn hidden" onclick="saveEnvanterChanges()">Envanter Değişikliklerini Kaydet</button>
-        </div>
-        
-        <div style="background: #f0f4f8; padding: 15px; border-radius: 10px; margin-top: 20px; border: 1px solid #d1d9e0;">
-            <h3>Doluluk İzleme & Saat Yönetimi</h3>
-            <p style="font-size:11px; color:#666;">* Admin: Boş/Açık hücreleri kapatabilir, kapalı hücreleri açabilirsiniz. Değişiklikler <b>turuncu</b> görünür.</p>
-            <div style="display:flex; gap:10px; align-items: center;">
-                <select id="adminViewLab" onchange="loadAdminCalendar()" style="flex:2;"><option value="Malzeme Karakterizasyon Lab.">Malzeme Karakterizasyon Lab.</option><option value="Numune Hazırlama Lab.">Numune Hazırlama Lab.</option><option value="Üretim Lab.">Üretim Lab.</option></select>
-                <input id="adminViewDate" type="date" onchange="loadAdminCalendar()" style="flex:1;">
-                <button onclick="refreshAdminTable()" class="refresh-btn" style="flex:0.5;">🔄 Yenile</button>
+
+            <div class="col-md-9">
+                <div id="newAppointmentSection">
+                    <div class="lab-header shadow-sm d-flex justify-content-between align-items-center">
+                        <h4 class="mb-0"><i class="fas fa-calendar-alt"></i> Randevu Oluştur</h4>
+                        <span class="badge bg-light text-dark">v2.0.1</span>
+                    </div>
+
+                    <div class="card shadow-sm border-0 p-4 mb-4">
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold">Laboratuvar</label>
+                                <select id="labSelect" class="form-select" onchange="updateDevices()">
+                                    </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold">Cihaz</label>
+                                <select id="deviceSelect" class="form-select" onchange="loadSchedule()">
+                                    </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold">Tarih</label>
+                                <input type="date" id="appointmentDate" class="form-control" onchange="loadSchedule()">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="scheduleContainer" class="row row-cols-2 row-cols-md-3 row-cols-lg-5 g-3">
+                        </div>
+                </div>
+
+                <div id="myAppointmentsSection" style="display:none;">
+                    <div class="lab-header shadow-sm bg-secondary">
+                        <h4 class="mb-0"><i class="fas fa-history"></i> Geçmiş ve Gelecek Randevular</h4>
+                    </div>
+                    <div class="card border-0 shadow-sm">
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Tarih</th>
+                                        <th>Saat</th>
+                                        <th>Lab & Cihaz</th>
+                                        <th>Durum</th>
+                                        <th>İşlem</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="myAppointmentsTable">
+                                    </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
             </div>
-            <div class="calendar-container"><table class="cal-table"><thead id="adminCalHead"></thead><tbody id="adminCalBody"></tbody></table></div>
-            <button id="saveAdminCalBtn" class="save-envanter-btn hidden" onclick="saveAdminCalendarChanges()">Tablo Değişikliklerini Kaydet</button>
         </div>
-        
-        <h3>Tüm Randevular</h3>
-        <table class="res-table">
-            <thead><tr><th>ID</th><th>Kullanıcı</th><th>Tel</th><th>Cihaz</th><th>Zaman</th><th>İşlem</th></tr></thead>
-            <tbody id="adminBody"></tbody>
-        </table>
-        <button onclick="logout()" style="background:#666; color:white; margin-top:20px;">Güvenli Çıkış</button>
     </div>
 
-    <div id="detailModal" class="modal">
-        <div class="modal-content">
-            <span class="close-modal" onclick="closeModal()">×</span>
-            <h3 style="margin-top:0;">Randevu Detayları</h3>
-            <div id="modalDetails" style="font-size:13px; line-height:1.6;"></div>
-            <h4 style="margin-bottom:5px; margin-top:15px;">İşlem Geçmişi (Log)</h4>
-            <div id="modalLogs" class="log-box"></div>
+    <div id="adminDashboard" class="dashboard-container container-fluid">
+        <nav class="navbar navbar-expand-lg navbar-dark bg-dark rounded mb-4 p-3">
+            <div class="container-fluid">
+                <a class="navbar-brand" href="#"><i class="fas fa-shield-alt"></i> Yönetici Paneli</a>
+                <button class="btn btn-outline-danger btn-sm" onclick="logout()">Çıkış</button>
+            </div>
+        </nav>
+
+        <ul class="nav nav-tabs mb-4" id="adminTabs">
+            <li class="nav-item">
+                <button class="nav-link active" onclick="showAdminTab('overview')"><i class="fas fa-ban"></i> Engelleme & Yönetim</button>
+            </li>
+            <li class="nav-item">
+                <button class="nav-link" onclick="showAdminTab('allApps')"><i class="fas fa-list"></i> Tüm Randevular</button>
+            </li>
+        </ul>
+
+        <div id="adminOverviewTab">
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="fw-bold">Laboratuvar</label>
+                            <select id="adminLabSelect" class="form-select" onchange="updateAdminDevices()">
+                                </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="fw-bold">Cihaz</label>
+                            <select id="adminDeviceSelect" class="form-select" onchange="loadAdminSchedule()">
+                                </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="fw-bold">Tarih</label>
+                            <input type="date" id="adminDateInput" class="form-control" onchange="loadAdminSchedule()">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div id="adminScheduleContainer" class="row row-cols-2 row-cols-md-4 row-cols-lg-6 g-2">
+                </div>
+        </div>
+
+        <div id="adminAllAppsTab" style="display:none;">
+            <div class="card border-0 shadow-sm">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover mb-0">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>ID</th>
+                                <th>Kullanıcı (Tel)</th>
+                                <th>Laboratuvar</th> <th>Cihaz</th>
+                                <th>Tarih & Saat</th>
+                                <th>İşlem</th>
+                            </tr>
+                        </thead>
+                        <tbody id="adminAppointmentsBody">
+                            </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
     </div>
-</div>
 
-<script>
-const { Client, Account, Databases, ID, Query } = Appwrite;
-const client = new Client().setEndpoint('https://cloud.appwrite.io/v1').setProject('6981c32f00212fb21625');
-const account = new Account(client);
-const databases = new Databases(client);
+    <script>
+        // --- VERİ TABANI SİMÜLASYONU ---
+        const labs = {
+            lab1: { name: "Sentetik Lab", devices: ["Fırın A", "Fırın B", "Mikser", "Pres"], type: "short" },
+            lab2: { name: "Karakterizasyon", devices: ["SEM", "XRD", "Çekme Testi"], type: "long" }, // 4 Saatlik Bloklar
+            lab3: { name: "Sarf Malzeme", devices: ["Stok Depo 1", "Stok Depo 2"], type: "short" }
+        };
 
-// EMAILJS
-const EMAILJS_SERVICE_ID = "service_bnjn6pj"; 
-const EMAILJS_PUBLIC_KEY = "GoSBRo0EMVNlIyZSK";
-const EMAILJS_TEMPLATE_ID = "template_mifux1n"; 
+        const users = [
+            { id: "admin", pass: "1234", role: "admin", name: "Yönetici" },
+            { id: "2023001", pass: "1234", role: "student", name: "Ahmet Yılmaz", phone: "0555 111 2233", quotaShort: 0, quotaLong: 0 },
+            { id: "2023002", pass: "1234", role: "student", name: "Ayşe Demir", phone: "0555 444 5566", quotaShort: 0, quotaLong: 0 }
+        ];
 
-(function(){ emailjs.init(EMAILJS_PUBLIC_KEY); })();
+        let appointments = []; // Randevular
+        let blockedSlots = []; // Admin Blokları
+        let currentUser = null;
 
-const DB_ID = '6981c42a00202c6cdf0e', COLL_APP = 'appointments', COLL_EQUIP = 'equipments', COLL_PROFILES = 'profiles';
-const SUPER_ADMINS = ["oktay.kemah@ikc.edu.tr", "saadet.guler@ikc.edu.tr", "metehan.atagur@ikc.edu.tr", "berk.ozler@ikc.edu.tr"];
-const LAB_BOSSES = { "Numune Hazırlama Lab.": "Arş. Gör. Oktay Kemah", "Malzeme Karakterizasyon Lab.": "Öğr. Gör. Dr. Saadet Güler", "Üretim Lab.": "Arş.Gör.Dr. Metehan Atagür - Arş.Gör. Berk Özler" };
-const LAB_EMAILS = { "Numune Hazırlama Lab.": ["oktay.kemah@ikc.edu.tr"], "Malzeme Karakterizasyon Lab.": ["saadet.guler@ikc.edu.tr"], "Üretim Lab.": ["metehan.atagur@ikc.edu.tr", "berk.ozler@ikc.edu.tr"] };
+        // --- SAYFA YÜKLENİNCE ---
+        window.onload = function() {
+            populateSelects();
+        };
 
-const hours = ["09:00-10:00", "10:00-11:00", "11:00-12:00", "12:00-13:00", "13:00-14:00", "14:00-15:00", "15:00-16:00", "16:00-17:00"];
-const restrictedHours = ["09:00-10:00", "16:00-17:00"]; 
+        function populateSelects() {
+            const labSel = document.getElementById('labSelect');
+            const admLabSel = document.getElementById('adminLabSelect');
+            labSel.innerHTML = "";
+            admLabSel.innerHTML = "";
 
-let currentUser = null, editingId = null, editingOwner = null, editingHistory = "";
-let appointmentsMap = {}, userMap = {}, equipmentTypeMap = {}; 
-let selectedCells = [], tempAdminChanges = []; 
+            for(let key in labs) {
+                let opt = document.createElement("option");
+                opt.value = key;
+                opt.text = labs[key].name;
+                labSel.appendChild(opt);
+                
+                let opt2 = document.createElement("option");
+                opt2.value = key;
+                opt2.text = labs[key].name;
+                admLabSel.appendChild(opt2);
+            }
+        }
 
-// KOTA LİMİTLERİ
-const LIMIT_SHORT_HOURS = 15;
-const LIMIT_LONG_BLOCKS = 3;
+        // --- GİRİŞ ---
+        function login() {
+            const id = document.getElementById('username').value;
+            const pass = document.getElementById('password').value;
+            const type = document.getElementById('userType').value;
 
-function getWeekNumber(d) {
-    d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-    d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay()||7));
-    var yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
-    var weekNo = Math.ceil(( ( (d - yearStart) / 86400000) + 1)/7);
-    return [d.getUTCFullYear(), weekNo];
-}
+            const user = users.find(u => u.id === id && u.pass === pass && u.role === type);
 
-// KOTA SORGULAMA (DÜZELTİLDİ: Saat Bazlı Blok Hesabı)
-async function checkUserQuota(targetDate) {
-    if(SUPER_ADMINS.includes(currentUser.email)) return { short: 0, long: 0, ok: true };
-
-    const targetWeek = getWeekNumber(new Date(targetDate));
-    const res = await databases.listDocuments(DB_ID, COLL_APP, [Query.equal('name', currentUser.name), Query.limit(100)]);
-    
-    let usedShort = 0;
-    let usedLongBlocks = 0;
-
-    for(let doc of res.documents) {
-        if(editingId && doc.$id === editingId) continue; 
-
-        const docWeek = getWeekNumber(new Date(doc.date));
-        if (docWeek[0] === targetWeek[0] && docWeek[1] === targetWeek[1]) {
-            const type = equipmentTypeMap[doc.equipment] || 'short';
-            const duration = doc.time.split(', ').length;
-            
-            if (type === 'long') {
-                // Her 3 saat = 1 blok olarak kabul edilir. 
-                // Artık aynı gün bile olsa split edildiği için her kayıt kendi süresince sayılır.
-                // 3 saatlik bir kayıt = 1, 6 saatlik (eski) bir kayıt = 2.
-                usedLongBlocks += Math.floor(duration / 3) || 1; // En az 1 say
+            if(user) {
+                currentUser = user;
+                document.getElementById('loginPage').style.display = 'none';
+                
+                if(user.role === 'admin') {
+                    document.getElementById('adminDashboard').style.display = 'block';
+                    // İlk açılışta boş gelebilir, admin seçim yapmalı
+                } else {
+                    document.getElementById('userDashboard').style.display = 'block';
+                    document.getElementById('userNameDisplay').innerText = user.name;
+                    updateQuotaUI();
+                }
             } else {
-                usedShort += duration;
+                document.getElementById('loginError').style.display = 'block';
             }
         }
-    }
-    return { short: usedShort, long: usedLongBlocks, ok: true };
-}
 
-async function updateQuotaDisplay(dateVal) {
-    const d = dateVal ? new Date(dateVal) : new Date();
-    if(Object.keys(equipmentTypeMap).length === 0) return;
+        function logout() { location.reload(); }
 
-    const stats = await checkUserQuota(d);
-    const div = document.getElementById("quotaDisplay");
-    
-    if(SUPER_ADMINS.includes(currentUser?.email)) {
-        div.classList.add("hidden"); return;
-    }
-    
-    div.classList.remove("hidden");
-    div.innerHTML = `
-        <span>📊 Haftalık Kotanız (${getWeekNumber(d)[1]}. Hafta):</span>
-        <span style="color: ${stats.short >= LIMIT_SHORT_HOURS ? 'red' : 'green'}">Kısa: ${stats.short}/${LIMIT_SHORT_HOURS} Saat</span>
-        <span style="color: ${stats.long >= LIMIT_LONG_BLOCKS ? 'red' : 'green'}">Uzun: ${stats.long}/${LIMIT_LONG_BLOCKS} Blok</span>
-    `;
-}
+        // --- KULLANICI İŞLEMLERİ ---
+        function updateDevices() {
+            const labKey = document.getElementById('labSelect').value;
+            const devSelect = document.getElementById('deviceSelect');
+            devSelect.innerHTML = "";
 
-function sendEmail(toEmails, subject, messageBody) {
-    const targets = Array.isArray(toEmails) ? toEmails : [toEmails];
-    targets.forEach(email => {
-        if(!email || email === "Bilinmiyor") return;
-        emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, { to_email: email, subject: subject, message: messageBody })
-        .then(function() { console.log('Mail gönderildi:', email); }, function(error) { console.error('Mail hatası:', error); });
-    });
-}
-
-function getHoliday(dateStr) {
-    const d = new Date(dateStr), day = d.getDay(), monthDay = (d.getMonth() + 1) + "-" + d.getDate();
-    if (day === 0 || day === 6) return "Hafta Sonu (Laboratuvar Kapalı)";
-    const h = {"1-1":"Yılbaşı","4-23":"23 Nisan","5-1":"1 Mayıs","5-19":"19 Mayıs","7-15":"15 Temmuz","8-30":"30 Ağustos","10-29":"29 Ekim"};
-    const r2026 = {"3-19":"Bayram Arifesi","3-20":"Ramazan Bayramı","3-21":"Ramazan Bayramı","3-22":"Ramazan Bayramı","5-26":"Bayram Arifesi","5-27":"Kurban Bayramı","5-28":"Kurban Bayramı","5-29":"Kurban Bayramı","5-30":"Kurban Bayramı"};
-    return h[monthDay] || r2026[monthDay] || null;
-}
-
-function canProcess(dateStr, type) {
-    if (SUPER_ADMINS.includes(currentUser?.email)) return true;
-    const targetDate = new Date(dateStr); targetDate.setHours(0, 0, 0, 0); 
-    const today = new Date(); today.setHours(0, 0, 0, 0); 
-    if (type === 'booking') return targetDate > today;
-    const diffTime = targetDate - today; const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    if (type === 'delete') return diffDays >= 1; 
-    if (type === 'edit') return diffDays >= 2; 
-    return false;
-}
-
-async function loadUserProfiles() {
-    try {
-        const res = await databases.listDocuments(DB_ID, COLL_PROFILES, [Query.orderAsc('studentId')]);
-        document.getElementById("userProfilesBody").innerHTML = res.documents.map(u => `<tr><td style="font-weight:bold;">${u.studentId}</td><td>${u.name}</td><td>${u.phone}</td></tr>`).join('');
-        res.documents.forEach(u => { userMap[u.name] = { id: u.studentId, phone: u.phone, email: u.email || "Bilinmiyor" }; });
-    } catch (e) {}
-}
-
-async function listAdminEquipments() {
-    const lab = document.getElementById("adminLabSelect").value;
-    const res = await databases.listDocuments(DB_ID, COLL_EQUIP, [Query.equal('lab', lab)]);
-    const listDiv = document.getElementById("adminEquipList"), saveBtn = document.getElementById("saveEnvanterBtn");
-    saveBtn.classList.toggle("hidden", res.total === 0);
-    listDiv.innerHTML = res.documents.map(d => `
-        <div class="equip-row" data-id="${d.$id}" style="display:flex; justify-content:space-between; align-items:center; padding:10px; border-bottom:1px solid #eee;">
-            <span style="font-size:13px; font-weight:bold;">${d.name}</span>
-            <div style="display:flex; gap:5px;">
-                <select class="type-select" style="padding:5px; font-size:11px; width:auto; border:1px solid #ccc;">
-                    <option value="short" ${d.type !== 'long' ? 'selected' : ''}>Kısa (Saatlik)</option>
-                    <option value="long" ${d.type === 'long' ? 'selected' : ''}>Uzun (Blok)</option>
-                </select>
-                <select class="status-select" style="padding:5px; font-size:11px; width:auto;">
-                    <option value="Kullanılabilir" ${d.status === 'Kullanılabilir' ? 'selected' : ''}>Kullanılabilir</option>
-                    <option value="Bakımda" ${d.status === 'Bakımda' ? 'selected' : ''}>Bakımda</option>
-                    <option value="Kullanım Dışı" ${d.status === 'Kullanım Dışı' ? 'selected' : ''}>Kullanım Dışı</option>
-                </select>
-                <button onclick="deleteDevice('${d.$id}')" style="background:var(--danger); color:white; border:none; border-radius:4px; padding:5px 12px; cursor:pointer; font-size:11px;">Sil</button>
-            </div>
-        </div>`).join('');
-}
-
-async function saveEnvanterChanges() {
-    const rows = document.querySelectorAll('.equip-row'), btn = document.getElementById("saveEnvanterBtn");
-    btn.innerText = "Kaydediliyor..."; btn.disabled = true;
-    try {
-        for (let row of rows) {
-            const id = row.getAttribute('data-id'), newStatus = row.querySelector('.status-select').value, newType = row.querySelector('.type-select').value;
-            await databases.updateDocument(DB_ID, COLL_EQUIP, id, { status: newStatus, type: newType });
+            labs[labKey].devices.forEach(d => {
+                let opt = document.createElement("option");
+                opt.value = d;
+                opt.text = d;
+                devSelect.appendChild(opt);
+            });
+            loadSchedule();
         }
-        alert("Envanter güncellendi.");
-    } catch (e) { alert("Hata: " + e.message); }
-    finally { btn.innerText = "Envanter Değişikliklerini Kaydet"; btn.disabled = false; listAdminEquipments(); }
-}
 
-async function addEquipmentToDB() {
-    const lab = document.getElementById("adminLabSelect").value, name = document.getElementById("newEquipName").value.trim(), type = document.getElementById("newEquipType").value;
-    if(name) { await databases.createDocument(DB_ID, COLL_EQUIP, ID.unique(), { name, lab, status: 'Kullanılabilir', type: type }); document.getElementById("newEquipName").value = ""; listAdminEquipments(); }
-}
-async function deleteDevice(id) { if(confirm("Emin misiniz?")) { await databases.deleteDocument(DB_ID, COLL_EQUIP, id); listAdminEquipments(); } }
+        function loadSchedule() {
+            const labKey = document.getElementById('labSelect').value;
+            const device = document.getElementById('deviceSelect').value;
+            const date = document.getElementById('appointmentDate').value;
+            const container = document.getElementById('scheduleContainer');
+            container.innerHTML = "";
 
-window.toggleSlot = function(cell, equipName, timeSlot, isLongTerm) {
-    if (cell.classList.contains('slot-occupied') || cell.classList.contains('slot-inactive') || cell.classList.contains('slot-me') || cell.classList.contains('slot-other') || cell.classList.contains('slot-blocked')) return;
-    let slotsToAdd = [];
-    if(isLongTerm) {
-        if(timeSlot === "10:00-11:00") slotsToAdd = ["10:00-11:00", "11:00-12:00", "12:00-13:00"];
-        else if(timeSlot === "13:00-14:00") slotsToAdd = ["13:00-14:00", "14:00-15:00", "15:00-16:00"];
-        else return;
-    } else { slotsToAdd = [timeSlot]; }
-    const firstIndex = selectedCells.findIndex(s => s.equip === equipName && s.time === slotsToAdd[0]);
-    if (firstIndex > -1) {
-        slotsToAdd.forEach(t => { const idx = selectedCells.findIndex(s => s.equip === equipName && s.time === t); if(idx > -1) selectedCells.splice(idx, 1); });
-        cell.classList.remove('slot-selected'); cell.innerText = isLongTerm ? (timeSlot === "10:00-11:00" ? "10:00-13:00" : "13:00-16:00") : "BOŞ";
-    } else {
-        slotsToAdd.forEach(t => selectedCells.push({ equip: equipName, time: t })); cell.classList.add('slot-selected'); cell.innerText = "SEÇİLDİ";
-    }
-}
+            if(!date || !labKey) return;
 
-window.toggleAdminBlock = function(cell, lab, date, equip, time, docId, isRestrictedDefault) {
-    const changeId = `${equip}-${time}`; const existingIndex = tempAdminChanges.findIndex(c => c.id === changeId); let actionType; 
-    if (docId) { 
-        actionType = 'unblock'; if (cell.classList.contains('slot-pending')) { cell.classList.remove('slot-pending'); cell.innerText = isRestrictedDefault ? "AÇIK" : "KAPALI"; if(existingIndex > -1) tempAdminChanges.splice(existingIndex, 1); return; }
-        cell.classList.add('slot-pending'); cell.innerText = "KAPATILACAK"; 
-    } else {
-        actionType = isRestrictedDefault ? 'unblock' : 'block'; if (cell.classList.contains('slot-pending')) { cell.classList.remove('slot-pending'); cell.innerText = isRestrictedDefault ? "KAPALI" : "BOŞ"; if(existingIndex > -1) tempAdminChanges.splice(existingIndex, 1); return; }
-        cell.classList.add('slot-pending'); cell.innerText = actionType === 'block' ? "KAPATILACAK" : "AÇILACAK";
-    }
-    if(existingIndex === -1) tempAdminChanges.push({ id: changeId, lab, date, equip, time, docId, isRestrictedDefault });
-    if(tempAdminChanges.length > 0) document.getElementById("saveAdminCalBtn").classList.remove("hidden"); else document.getElementById("saveAdminCalBtn").classList.add("hidden");
-}
+            let slots = [];
+            const isShort = labs[labKey].type === "short";
 
-window.refreshAdminTable = function() { tempAdminChanges = []; loadAdminCalendar(); document.getElementById("saveAdminCalBtn").classList.add("hidden"); }
-
-async function saveAdminCalendarChanges() {
-    if(tempAdminChanges.length === 0) return;
-    const btn = document.getElementById("saveAdminCalBtn"); btn.innerText = "Kaydediliyor..."; btn.disabled = true;
-    try {
-        for(let change of tempAdminChanges) {
-            if (change.docId) { try { await databases.deleteDocument(DB_ID, COLL_APP, change.docId); } catch(e){} } 
-            else { await databases.createDocument(DB_ID, COLL_APP, ID.unique(), { name: change.isRestrictedDefault ? "LAB_ACIK" : "LAB_KAPALI", lab: change.lab, date: change.date, equipment: change.equip, time: change.time, history: `${change.isRestrictedDefault ? "Açıldı" : "Kapatıldı"} işlemi: ${currentUser.name}` }); }
-        }
-        alert("Tablo güncellendi."); tempAdminChanges = []; loadAdminCalendar();
-    } catch(e) { alert("Hata: " + e.message); }
-    finally { btn.innerText = "Tablo Değişikliklerini Kaydet"; btn.disabled = false; }
-}
-
-async function refreshView() {
-    const lab = document.getElementById("labSelect").value, dateStr = document.getElementById("resDate").value;
-    if(!lab || !dateStr) return;
-    document.getElementById("labInfoCard").innerText = `Sorumlu: ${LAB_BOSSES[lab]}`;
-    document.getElementById("labInfoCard").classList.remove("hidden");
-    document.getElementById("statusSection").classList.remove("hidden");
-    const holiday = getHoliday(dateStr), notice = document.getElementById("holidayNotice"), content = document.getElementById("calendarContent");
-    if(!SUPER_ADMINS.includes(currentUser?.email)) {
-        if(holiday) { notice.innerText = `⚠️ ${holiday}`; notice.classList.remove("hidden"); content.classList.add("hidden"); return; }
-        if(!canProcess(dateStr, 'booking')) { notice.innerText = `⚠️ Aynı gün randevu alınamaz.`; notice.classList.remove("hidden"); content.classList.add("hidden"); return; }
-    }
-    notice.classList.add("hidden"); content.classList.remove("hidden");
-    if (!editingId) selectedCells = [];
-    
-    const allEquips = await databases.listDocuments(DB_ID, COLL_EQUIP, [Query.equal('lab', lab)]);
-    equipmentTypeMap = {}; 
-    allEquips.documents.forEach(d => { equipmentTypeMap[d.name] = d.type || 'short'; });
-
-    updateQuotaDisplay(dateStr);
-    await renderCalendar(lab, dateStr, "calHead", "calBody", false, allEquips.documents);
-}
-
-async function renderCalendar(lab, date, headId, bodyId, isAdminView, devices) {
-    const apps = await databases.listDocuments(DB_ID, COLL_APP, [Query.equal('lab', lab), Query.equal('date', date)]);
-    document.getElementById(headId).innerHTML = `<tr><th>Saat</th>${devices.map(d => `<th>${d.name} ${d.type === 'long' ? '<br>(Uzun)' : ''}</th>`).join('')}</tr>`;
-    document.getElementById(bodyId).innerHTML = hours.map(h => {
-        const row = devices.map(d => {
-            const isLong = d.type === 'long';
-            if(isLong) {
-                if (["11:00-12:00", "12:00-13:00", "14:00-15:00", "15:00-16:00"].includes(h)) return ""; 
-                if (["09:00-10:00", "16:00-17:00"].includes(h)) return `<td class="slot-inactive" style="background:#eee;">-</td>`;
-            }
-            if(d.status && d.status !== 'Kullanılabilir') return isLong ? `<td rowspan="3" class="slot-inactive">${d.status}</td>` : `<td class="slot-inactive">${d.status === 'Bakımda' ? 'BAKIM' : 'K.DIŞI'}</td>`;
-            
-            const isRestricted = restrictedHours.includes(h);
-            const openDoc = apps.documents.find(a => a.time.includes(h) && a.equipment.includes(d.name) && a.name === "LAB_ACIK");
-            const closeDoc = apps.documents.find(a => a.time.includes(h) && a.equipment.includes(d.name) && a.name === "LAB_KAPALI");
-            const m = apps.documents.find(a => a.time.includes(h) && a.equipment.includes(d.name) && a.name !== "LAB_ACIK" && a.name !== "LAB_KAPALI");
-
-            let cellClass = "slot-free", cellText = isLong ? (h === "10:00-11:00" ? "10:00-13:00" : "13:00-16:00") : "BOŞ", onClick = `toggleSlot(this, '${d.name}', '${h}', ${isLong})`, rowSpanAttr = isLong ? 'rowspan="3"' : '';
-
-            if (m) {
-                if (editingId && m && m.$id === editingId) { const isSelected = selectedCells.find(s => s.equip === d.name && s.time === h); cellClass = isSelected ? "slot-selected" : "slot-free"; cellText = isSelected ? "SEÇİLDİ" : cellText; } 
-                else { cellClass = (isAdminView || SUPER_ADMINS.includes(currentUser.email)) ? "slot-occupied" : (m.name === currentUser.name ? "slot-me" : "slot-other"); cellText = (isAdminView || SUPER_ADMINS.includes(currentUser.email)) ? m.name : (m.name === currentUser.name ? "BEN" : "DOLU"); onClick = ""; }
-                return `<td ${rowSpanAttr} class="${cellClass}" ${onClick ? `onclick="${onClick}"` : ''}>${cellText}</td>`;
-            }
-            if (isAdminView) {
-                if (isRestricted) { if (openDoc) { cellClass = "slot-free slot-admin-clickable"; cellText = "AÇIK"; onClick = `toggleAdminBlock(this, '${lab}', '${date}', '${d.name}', '${h}', '${openDoc.$id}', true)`; } else { cellClass = "slot-blocked slot-admin-clickable"; cellText = "KAPALI"; onClick = `toggleAdminBlock(this, '${lab}', '${date}', '${d.name}', '${h}', null, true)`; } } 
-                else { if (closeDoc) { cellClass = "slot-blocked slot-admin-clickable"; cellText = "KAPALI"; onClick = `toggleAdminBlock(this, '${lab}', '${date}', '${d.name}', '${h}', '${closeDoc.$id}', false)`; } else { cellClass = "slot-free slot-admin-clickable"; cellText = "BOŞ"; onClick = `toggleAdminBlock(this, '${lab}', '${date}', '${d.name}', '${h}', null, false)`; } }
-                return `<td ${rowSpanAttr} class="${cellClass}" onclick="${onClick}">${cellText}</td>`;
-            }
-            if (isRestricted && !openDoc) return `<td ${rowSpanAttr} class="slot-blocked">KAPALI</td>`;
-            if (closeDoc) return `<td ${rowSpanAttr} class="slot-blocked">KAPALI</td>`;
-            const isSelected = selectedCells.find(s => s.equip === d.name && s.time === h);
-            if(isSelected) { cellClass = "slot-selected"; cellText = "SEÇİLDİ"; }
-            return `<td ${rowSpanAttr} class="${cellClass}" onclick="${onClick}">${cellText}</td>`;
-        }).join('');
-        return `<tr><td><b>${h}</b></td>${row}</tr>`;
-    }).join('');
-}
-
-// KAYIT İŞLEMİ (DÜZELTİLDİ: Kayıt Algoritması + Kota Kontrolü)
-async function saveBooking() {
-    const lab = document.getElementById("labSelect").value, date = document.getElementById("resDate").value;
-    if (selectedCells.length === 0) return alert("Lütfen tablodan seçim yapınız!");
-
-    // 1. KOTA HESABI
-    let proposedShort = 0;
-    let proposedLong = 0;
-    const uniqueEquipsCheck = [...new Set(selectedCells.map(s => s.equip))];
-    
-    uniqueEquipsCheck.forEach(eq => {
-        const type = equipmentTypeMap[eq] || 'short';
-        if (type === 'long') {
-            // Long tipinde seçilen saatlere göre blok sayısı belirle
-            // toggleSlot zaten 3 saatlik blok seçtiriyor. Ancak saveBooking döngüsü her blok için 1 kayıt atıyor.
-            // Burada kaç tane 3'lü grup var ona bakmalıyız.
-            const totalHours = selectedCells.filter(s => s.equip === eq).length;
-            proposedLong += Math.floor(totalHours / 3);
-        }
-        else {
-            const count = selectedCells.filter(s => s.equip === eq).length;
-            proposedShort += count;
-        }
-    });
-
-    const currentStats = await checkUserQuota(date);
-    if ((currentStats.short + proposedShort) > LIMIT_SHORT_HOURS) return alert(`⚠️ Kısa süreli cihaz kullanım kotanız doldu! (Haftalık Max: ${LIMIT_SHORT_HOURS} Saat)`);
-    if ((currentStats.long + proposedLong) > LIMIT_LONG_BLOCKS) return alert(`⚠️ Uzun süreli cihaz kullanım kotanız doldu! (Haftalık Max: ${LIMIT_LONG_BLOCKS} Blok)`);
-
-    // 2. ÇAKIŞMA KONTROLÜ
-    const res = await databases.listDocuments(DB_ID, COLL_APP, [Query.equal('date', date), Query.equal('lab', lab)]);
-    for (let cell of selectedCells) { const conflict = res.documents.find(doc => doc.$id !== editingId && doc.equipment.includes(cell.equip) && doc.time.includes(cell.time) && doc.name !== "LAB_ACIK"); if(conflict) return alert(`Hata: ${cell.equip} cihazı ${cell.time} saatinde dolu!`); }
-    
-    let finalOwner = currentUser.name, logEntry = `Oluşturuldu: ${currentUser.name} - ${new Date().toLocaleString()}\n`, isEditAction = false;
-    if(editingId) { isEditAction = true; await databases.deleteDocument(DB_ID, COLL_APP, editingId); finalOwner = editingOwner; const editor = currentUser.name; logEntry = editingHistory + `Düzenlendi: ${editor} tarafından - ${new Date().toLocaleString()}\n`; document.getElementById("editModeNotice").classList.add("hidden"); }
-
-    const uniqueEquips = [...new Set(selectedCells.map(s => s.equip))];
-    try {
-        for (let eq of uniqueEquips) {
-            const type = equipmentTypeMap[eq] || 'short';
-            const times = selectedCells.filter(s => s.equip === eq).map(s => s.time);
-
-            if (type === 'long') {
-                // BLOKLARI AYRI AYRI KAYDET (Split Logic)
-                const morningParams = ["10:00-11:00", "11:00-12:00", "12:00-13:00"];
-                const afternoonParams = ["13:00-14:00", "14:00-15:00", "15:00-16:00"];
-                const hasMorning = morningParams.every(h => times.includes(h));
-                const hasAfternoon = afternoonParams.every(h => times.includes(h));
-
-                if(hasMorning) { await databases.createDocument(DB_ID, COLL_APP, ID.unique(), { name: finalOwner, lab, date, equipment: eq, time: morningParams.join(', '), history: logEntry }); }
-                if(hasAfternoon) { await databases.createDocument(DB_ID, COLL_APP, ID.unique(), { name: finalOwner, lab, date, equipment: eq, time: afternoonParams.join(', '), history: logEntry }); }
+            if(isShort) {
+                for(let i=9; i<17; i++) slots.push(`${i < 10 ? '0'+i : i}:00 - ${i+1 < 10 ? '0'+(i+1) : i+1}:00`);
             } else {
-                await databases.createDocument(DB_ID, COLL_APP, ID.unique(), { name: finalOwner, lab, date, equipment: eq, time: times.join(', '), history: logEntry });
+                slots = ["08:30 - 12:30", "13:30 - 17:30", "18:00 - 22:00"];
+            }
+
+            slots.forEach(time => {
+                const div = document.createElement("div");
+                div.className = "col";
+                
+                // Kontroller
+                const isBlocked = blockedSlots.some(b => b.lab === labs[labKey].name && b.device === device && b.date === date && b.time === time);
+                const app = appointments.find(a => a.lab === labs[labKey].name && a.device === device && a.date === date && a.time === time);
+
+                if(isBlocked) {
+                    div.innerHTML = `<div class="slot-box slot-admin-block"><i class="fas fa-tools"></i> ${time}<br><small>Bakımda</small></div>`;
+                } else if(app) {
+                    if(app.userId === currentUser.id) {
+                        div.innerHTML = `<div class="slot-box slot-my" onclick="cancelAppointment('${app.id}')"><i class="fas fa-check-circle"></i> ${time}<br><small>Sizin</small></div>`;
+                    } else {
+                        div.innerHTML = `<div class="slot-box slot-full"><i class="fas fa-lock"></i> ${time}<br><small>Dolu</small></div>`;
+                    }
+                } else {
+                    div.innerHTML = `<div class="slot-box slot-empty" onclick="bookAppointment('${time}', '${isShort}')">${time}<br><small>Müsait</small></div>`;
+                }
+                container.appendChild(div);
+            });
+        }
+
+        // --- KOTA VE RANDEVU KAYIT (v2.0.0 MANTIĞI) ---
+        function bookAppointment(time, isShort) {
+            // Kota Kontrolü
+            if(isShort) {
+                if(currentUser.quotaShort >= 15) { alert("Haftalık 15 saatlik kısa süreli cihaz kotanız doldu!"); return; }
+            } else {
+                if(currentUser.quotaLong >= 3) { alert("Haftalık 3 blokluk uzun süreli cihaz kotanız doldu!"); return; }
+            }
+
+            const labKey = document.getElementById('labSelect').value;
+            const device = document.getElementById('deviceSelect').value;
+            const date = document.getElementById('appointmentDate').value;
+            const labName = labs[labKey].name;
+
+            if(confirm(`${labName} - ${device}\nTarih: ${date}\nSaat: ${time}\nRandevuyu onaylıyor musunuz?`)) {
+                // Burada SAVE LOGIC devreye giriyor.
+                // Eğer "Uzun Süreli" ise tek tek kaydediyoruz (Blok mantığı).
+                const newApp = {
+                    id: Date.now().toString(),
+                    userId: currentUser.id,
+                    userName: currentUser.name,
+                    lab: labName,
+                    device: device,
+                    date: date,
+                    time: time,
+                    isShort: isShort
+                };
+                appointments.push(newApp);
+                
+                // Kota Artır
+                if(isShort) currentUser.quotaShort += 1; // 1 saat
+                else currentUser.quotaLong += 1; // 1 blok
+
+                updateQuotaUI();
+                loadSchedule();
+                sendEmail("Randevu Onayı", `Sayın ${currentUser.name}, ${date} ${time} için randevunuz oluşturuldu.`);
             }
         }
-        
-        const isAdmin = SUPER_ADMINS.includes(currentUser.email);
-        
-        if (isAdmin && isEditAction && finalOwner !== currentUser.name) {
-            const userEmail = userMap[finalOwner]?.email || "Bilinmiyor"; if(userEmail !== "Bilinmiyor") sendEmail(userEmail, "Randevunuz Düzenlendi", `${date} tarihindeki randevunuz yönetici tarafından güncellendi.`);
-        } else if (!isAdmin) {
-            const supervisorEmails = LAB_EMAILS[lab]; 
-            // SADECE DEĞİŞİKLİK VE İPTAL (EditAction)
-            if(isEditAction) sendEmail(supervisorEmails, `Randevu Düzenlendi`, `${currentUser.name}, ${date} tarihi için işlem yaptı.`);
+
+        function cancelAppointment(appId) {
+            if(confirm("Randevuyu iptal etmek istediğinize emin misiniz?")) {
+                const idx = appointments.findIndex(a => a.id === appId);
+                if(idx > -1) {
+                    const app = appointments[idx];
+                    
+                    // Kota İade
+                    if(app.isShort) currentUser.quotaShort -= 1;
+                    else currentUser.quotaLong -= 1;
+
+                    appointments.splice(idx, 1);
+                    updateQuotaUI();
+                    
+                    // Nereden çağrıldığına göre ekran yenile
+                    if(document.getElementById('newAppointmentSection').style.display !== 'none') loadSchedule();
+                    else loadMyAppointments();
+
+                    sendEmail("İptal Bilgisi", `Randevunuz iptal edildi: ${app.date} ${app.time}`);
+                }
+            }
         }
 
-        alert("İşlem Başarılı!"); editingId = null; editingOwner = null; editingHistory = ""; selectedCells = []; 
-        refreshView(); loadUserData(); if(SUPER_ADMINS.includes(currentUser.email)) loadAdminData();
-    } catch (e) { alert("Hata: " + e.message); }
-}
+        function updateQuotaUI() {
+            const pShort = document.getElementById('progressShort');
+            const pLong = document.getElementById('progressLong');
 
-async function editRes(id, lab, date, equipStr, timeStr, owner, history) {
-    if (!canProcess(date, 'edit')) { alert("Süresi dolmuş randevular düzenlenemez!"); return; }
-    editingId = id; editingOwner = owner; editingHistory = history; selectedCells = [];
-    const eqArr = equipStr.split(', '); const tmArr = timeStr.split(', ');
-    eqArr.forEach(eq => { tmArr.forEach(tm => { selectedCells.push({ equip: eq, time: tm }); }); });
-    document.getElementById("editModeNotice").classList.remove("hidden");
-    document.getElementById("labSelect").value = lab; document.getElementById("resDate").value = date.split('T')[0];
-    await refreshView(); document.getElementById("bookingPage").classList.remove("hidden"); document.getElementById("bookingPage").scrollIntoView({ behavior: 'smooth' });
-}
+            // 15 saat üzerinden yüzde
+            const shortPercent = (currentUser.quotaShort / 15) * 100;
+            pShort.style.width = `${shortPercent}%`;
+            pShort.innerText = `${currentUser.quotaShort}/15 Saat`;
 
-async function deleteRes(id, isAdmin) { 
-    if(!confirm("Silinsin mi?")) return; 
-    try {
-        const doc = await databases.getDocument(DB_ID, COLL_APP, id);
-        if (!isAdmin && !canProcess(doc.date, 'delete')) { alert("İptal süresi dolmuştur."); return; }
-
-        await databases.deleteDocument(DB_ID, COLL_APP, id);
-        
-        if (isAdmin && doc.name !== currentUser.name) {
-            const userEmail = userMap[doc.name]?.email || "Bilinmiyor"; if(userEmail !== "Bilinmiyor") sendEmail(userEmail, "Randevu İptali", `${doc.date} tarihindeki randevunuz yönetici tarafından iptal edildi.`);
-        } else if (!isAdmin) {
-            const supervisorEmails = LAB_EMAILS[doc.lab]; sendEmail(supervisorEmails, "Randevu İptali", `${doc.name}, ${doc.date} tarihindeki randevusunu iptal etti.`);
+            // 3 blok üzerinden yüzde
+            const longPercent = (currentUser.quotaLong / 3) * 100;
+            pLong.style.width = `${longPercent}%`;
+            pLong.innerText = `${currentUser.quotaLong}/3 Blok`;
         }
 
-        isAdmin ? loadAdminData() : loadUserData(); refreshView();
-    } catch(e) { alert("Hata: " + e.message); }
-}
+        function showSection(sec) {
+            document.getElementById('newAppointmentSection').style.display = 'none';
+            document.getElementById('myAppointmentsSection').style.display = 'none';
+            
+            if(sec === 'newAppointment') document.getElementById('newAppointmentSection').style.display = 'block';
+            else {
+                document.getElementById('myAppointmentsSection').style.display = 'block';
+                loadMyAppointments();
+            }
+        }
 
-window.showDetails = function(id) {
-    const doc = appointmentsMap[id]; if(!doc) return alert("Veri bulunamadı.");
-    const userDetail = userMap[doc.name] || { id: '-', phone: '-' };
-    document.getElementById("modalDetails").innerHTML = `<b>Öğrenci:</b> ${doc.name} (${userDetail.id})<br><b>Telefon:</b> ${userDetail.phone}<br><b>Laboratuvar:</b> ${doc.lab}<br><b>Tarih:</b> ${formatDate(doc.date)}<br><b>Cihazlar:</b> ${doc.equipment}<br><b>Saatler:</b> ${doc.time}`;
-    document.getElementById("modalLogs").innerText = doc.history || "Kayıt yok."; document.getElementById("detailModal").classList.add("active");
-}
-window.closeModal = function() { document.getElementById("detailModal").classList.remove("active"); }
+        function loadMyAppointments() {
+            const tbody = document.getElementById('myAppointmentsTable');
+            tbody.innerHTML = "";
+            const myApps = appointments.filter(a => a.userId === currentUser.id);
+            myApps.forEach(a => {
+                tbody.innerHTML += `<tr>
+                    <td>${a.date}</td>
+                    <td>${a.time}</td>
+                    <td>${a.lab} / ${a.device}</td>
+                    <td><span class="badge bg-success">Aktif</span></td>
+                    <td><button class="btn btn-sm btn-danger" onclick="cancelAppointment('${a.id}')">İptal</button></td>
+                </tr>`;
+            });
+        }
 
-function formatDate(dateStr) { if(!dateStr) return ""; const d = new Date(dateStr); return `${d.getDate().toString().padStart(2, '0')}.${(d.getMonth() + 1).toString().padStart(2, '0')}.${d.getFullYear()}`; }
+        // --- ADMIN İŞLEMLERİ ---
+        function updateAdminDevices() {
+            const labKey = document.getElementById('adminLabSelect').value;
+            const devSelect = document.getElementById('adminDeviceSelect');
+            devSelect.innerHTML = "";
+            labs[labKey].devices.forEach(d => {
+                let opt = document.createElement("option");
+                opt.value = d;
+                opt.text = d;
+                devSelect.appendChild(opt);
+            });
+            loadAdminSchedule();
+        }
 
-async function loadAdminData() {
-    const res = await databases.listDocuments(DB_ID, COLL_APP, [Query.orderDesc('$createdAt')]);
-    document.getElementById("adminBody").innerHTML = res.documents.map(doc => {
-        appointmentsMap[doc.$id] = doc; if (doc.name === "LAB_KAPALI" || doc.name === "LAB_ACIK") return ""; 
-        const past = !canProcess(doc.date, 'edit'); const userDetail = userMap[doc.name] || { id: '-', phone: '-' };
-        return `<tr><td>${userDetail.id}</td><td>${doc.name}</td><td>${userDetail.phone}</td><td>${doc.equipment}</td><td>${formatDate(doc.date)} / ${doc.time}</td><td><button class="info-btn" onclick="showDetails('${doc.$id}')">i</button><button class="edit-btn" ${past ? 'disabled' : ''} onclick="editRes('${doc.$id}', '${doc.lab}', '${doc.date}', '${doc.equipment}', '${doc.time}', '${doc.name}', \`${doc.history || ''}\`)">${past ? '-' : 'Düz.'}</button><button class="delete-btn" ${past ? 'disabled' : ''} onclick="deleteRes('${doc.$id}', true)">${past ? '-' : 'Sil'}</button></td></tr>`;
-    }).join('');
-}
+        function loadAdminSchedule() {
+            const labKey = document.getElementById('adminLabSelect').value;
+            const device = document.getElementById('adminDeviceSelect').value;
+            const date = document.getElementById('adminDateInput').value;
+            const container = document.getElementById('adminScheduleContainer');
+            container.innerHTML = "";
 
-async function loadUserData() {
-    const res = await databases.listDocuments(DB_ID, COLL_APP, [Query.equal('name', currentUser.name), Query.orderDesc('$createdAt')]);
-    document.getElementById("userBody").innerHTML = res.documents.map(doc => {
-        appointmentsMap[doc.$id] = doc;
-        const canEdit = canProcess(doc.date, 'edit'); const canDelete = canProcess(doc.date, 'delete');
-        return `<tr><td><b>${doc.lab}</b><br>${doc.equipment}</td><td>${formatDate(doc.date)}<br>${doc.time}</td><td><button class="info-btn" onclick="showDetails('${doc.$id}')">i</button><button class="edit-btn" ${canEdit ? '' : 'disabled'} onclick="editRes('${doc.$id}', '${doc.lab}', '${doc.date}', '${doc.equipment}', '${doc.time}', '${doc.name}', \`${doc.history || ''}\`)">${canEdit ? 'Düz.' : '-'}</button><button class="delete-btn" ${canDelete ? '' : 'disabled'} onclick="deleteRes('${doc.$id}', false)">${canDelete ? 'İptal' : '-'}</button></td></tr>`;
-    }).join('');
-}
+            if(!date || !labKey) return;
 
-async function checkSession() {
-    try {
-        currentUser = await account.get();
-        document.getElementById("loginPage").classList.add("hidden"); document.getElementById("bookingPage").classList.remove("hidden");
-        document.getElementById("userGreet").innerText = "Merhaba, " + currentUser.name;
-        if(SUPER_ADMINS.includes(currentUser.email)) { document.getElementById("adminLink").classList.remove("hidden"); await loadUserProfiles(); listAdminEquipments(); loadAdminData(); tempAdminChanges = []; }
-        loadUserData();
-    } catch (e) {}
-}
-async function handleLogin() { const email = document.getElementById("loginId").value.trim() + document.getElementById("loginDomain").value; try { await account.createEmailSession(email, document.getElementById("loginPass").value); location.reload(); } catch (e) { alert(e.message); } }
+            let slots = [];
+            if(labs[labKey].type === "short") {
+                for(let i=9; i<17; i++) slots.push(`${i < 10 ? '0'+i : i}:00 - ${i+1 < 10 ? '0'+(i+1) : i+1}:00`);
+            } else {
+                slots = ["08:30 - 12:30", "13:30 - 17:30", "18:00 - 22:00"];
+            }
 
-async function handleRegister() { 
-    const idVal = document.getElementById("regId").value.trim(); const email = idVal + document.getElementById("regDomain").value;
-    const pass = document.getElementById("regPass").value; const name = document.getElementById("regFullName").value; const phone = document.getElementById("regPhone").value.trim();
-    if(!phone) return alert("Telefon zorunlu!");
-    try { await account.create(ID.unique(), email, pass, name); await account.createEmailSession(email, pass); await account.updatePrefs({ phone: phone });
-        try { await databases.createDocument(DB_ID, COLL_PROFILES, ID.unique(), { studentId: idVal, name: name, phone: phone, email: email }); } catch(err) {}
-        await account.createVerification("https://oktaykemah.github.io/lab-randevu/"); alert("Mail gönderildi."); await account.deleteSession('current'); switchPage('loginPage'); 
-    } catch (e) { alert(e.message); } 
-}
+            slots.forEach(time => {
+                const div = document.createElement("div");
+                div.className = "col";
+                
+                const isBlocked = blockedSlots.some(b => b.lab === labs[labKey].name && b.device === device && b.date === date && b.time === time);
+                const app = appointments.find(a => a.lab === labs[labKey].name && a.device === device && a.date === date && a.time === time);
 
-async function loadAdminCalendar() { const lab = document.getElementById("adminViewLab").value, date = document.getElementById("adminViewDate").value; const eqs = await databases.listDocuments(DB_ID, COLL_EQUIP, [Query.equal('lab', lab)]); await renderCalendar(lab, date, "adminCalHead", "adminCalBody", true, eqs.documents); }
-function switchPage(id) { document.querySelectorAll('.box > div').forEach(d => d.classList.add('hidden')); document.getElementById(id).classList.remove('hidden'); }
-async function logout() { await account.deleteSession('current'); location.reload(); }
+                if(isBlocked) {
+                    div.innerHTML = `<div class="slot-box slot-admin-block" onclick="unblockSlot('${labs[labKey].name}', '${device}', '${date}', '${time}')"><i class="fas fa-ban"></i> ${time}<br><small>Engelli (Aç)</small></div>`;
+                } else if(app) {
+                    div.innerHTML = `<div class="slot-box slot-full" onclick="adminCancelApp('${app.id}')"><i class="fas fa-user"></i> ${time}<br><small>${app.userName}</small></div>`;
+                } else {
+                    div.innerHTML = `<div class="slot-box slot-empty" onclick="blockSlot('${labs[labKey].name}', '${device}', '${date}', '${time}')">${time}<br><small>Boş (Engelle)</small></div>`;
+                }
+                container.appendChild(div);
+            });
+        }
 
-window.onload = async () => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const userId = urlParams.get('userId'), secret = urlParams.get('secret');
-    if (userId && secret) {
-        try { await account.updateVerification(userId, secret);
-            const msg = document.getElementById("verifyMessage"); msg.innerText = "✅ Hesabınız başarıyla onaylandı!"; msg.classList.remove("hidden"); msg.classList.add("verify-success");
-            window.history.replaceState({}, document.title, window.location.pathname);
-        } catch (error) { const msg = document.getElementById("verifyMessage"); msg.innerText = "❌ Hata: " + error.message; msg.classList.remove("hidden"); msg.classList.add("verify-error"); }
-    }
-    checkSession();
-};
-</script>
+        function blockSlot(labName, device, date, time) {
+            if(confirm("Bu saati bakıma/kullanıma kapatmak istiyor musunuz?")) {
+                blockedSlots.push({ lab: labName, device, date, time });
+                loadAdminSchedule();
+            }
+        }
+        function unblockSlot(labName, device, date, time) {
+            if(confirm("Bu saati tekrar kullanıma açmak istiyor musunuz?")) {
+                const idx = blockedSlots.findIndex(b => b.lab === labName && b.device === device && b.date === date && b.time === time);
+                if(idx > -1) blockedSlots.splice(idx, 1);
+                loadAdminSchedule();
+            }
+        }
+        function adminCancelApp(id) {
+            if(confirm("Yönetici yetkisiyle bu randevuyu silmek istiyor musunuz?")) {
+                const idx = appointments.findIndex(a => a.id === id);
+                if(idx > -1) {
+                    // Kullanıcı kotasını iade etmeliyiz
+                    const app = appointments[idx];
+                    const uIndex = users.findIndex(u => u.id === app.userId);
+                    if(uIndex > -1) {
+                        if(app.isShort) users[uIndex].quotaShort -= 1;
+                        else users[uIndex].quotaLong -= 1;
+                    }
+
+                    appointments.splice(idx, 1);
+                    loadAdminSchedule();
+                    sendEmail("İptal (Yönetici)", `Yönetici ${app.date} ${app.time} randevunuzu iptal etti.`);
+                }
+            }
+        }
+
+        function loadAllAdminAppointments() {
+            const tbody = document.getElementById('adminAppointmentsBody');
+            tbody.innerHTML = "";
+            appointments.forEach(a => {
+                const u = users.find(u => u.id === a.userId);
+                // GÜNCELLEME BURADA: a.lab ile laboratuvar adını yazdırıyoruz.
+                tbody.innerHTML += `<tr>
+                    <td>${a.id}</td>
+                    <td>${a.userName} <br><small class="text-muted">${u ? u.phone : '-'}</small></td>
+                    <td>${a.lab}</td>
+                    <td>${a.device}</td>
+                    <td>${a.date} <br> ${a.time}</td>
+                    <td><button class="btn btn-sm btn-danger" onclick="adminCancelAppInList('${a.id}')"><i class="fas fa-trash"></i> Sil</button></td>
+                </tr>`;
+            });
+        }
+
+        function adminCancelAppInList(id) {
+            if(confirm("Bu randevuyu listeden silmek istiyor musunuz?")) {
+                const idx = appointments.findIndex(a => a.id === id);
+                if(idx > -1) {
+                    const app = appointments[idx];
+                    // Kota iadesi
+                    const uIndex = users.findIndex(u => u.id === app.userId);
+                    if(uIndex > -1) {
+                        if(app.isShort) users[uIndex].quotaShort -= 1;
+                        else users[uIndex].quotaLong -= 1;
+                    }
+                    
+                    appointments.splice(idx, 1);
+                    loadAllAdminAppointments();
+                }
+            }
+        }
+
+        function showAdminTab(tab) {
+            document.getElementById('adminOverviewTab').style.display = 'none';
+            document.getElementById('adminAllAppsTab').style.display = 'none';
+            document.querySelectorAll('#adminTabs .nav-link').forEach(l => l.classList.remove('active'));
+
+            if(tab === 'overview') {
+                document.getElementById('adminOverviewTab').style.display = 'block';
+                document.querySelector('#adminTabs .nav-link:first-child').classList.add('active');
+            } else {
+                document.getElementById('adminAllAppsTab').style.display = 'block';
+                document.querySelector('#adminTabs .nav-link:last-child').classList.add('active');
+                loadAllAdminAppointments();
+            }
+        }
+
+        // --- EMAIL ---
+        function sendEmail(subject, text) {
+            console.log(`Email Simülasyonu: [${subject}] ${text}`);
+            // emailjs.send(...)
+        }
+    </script>
 </body>
 </html>
