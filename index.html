@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>IKC Lab Booking - v1.6.7</title>
+  <title>IKC Lab Booking - v1.6.8</title>
   <script src="https://cdn.jsdelivr.net/npm/appwrite@13.0.1"></script>
   <style>
     :root { --primary: #0066cc; --admin: #2c3e50; --danger: #e74c3c; --success: #27ae60; --warning: #f39c12; --info: #17a2b8; --occupied-other: #fdeaea; --occupied-me: #e3f2fd; --holiday: #fff3e0; }
@@ -44,7 +44,7 @@
     .info-card { background: #e3f2fd; padding: 12px; border-radius: 8px; color: #0d47a1; font-size: 13px; font-weight: bold; margin-bottom: 15px; border-left: 5px solid var(--primary); line-height: 1.4; }
     .holiday-msg { background: var(--holiday); color: #e65100; padding: 15px; border-radius: 8px; text-align: center; font-weight: bold; margin-bottom: 15px; border: 1px solid #ffe0b2; }
 
-    /* MODAL (Kesin Gizlilik ve Konumlandırma) */
+    /* MODAL */
     .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 9999; }
     .modal.active { display: flex !important; }
     .modal-content { background: white; padding: 25px; border-radius: 10px; width: 90%; max-width: 500px; box-shadow: 0 10px 25px rgba(0,0,0,0.3); position: relative; }
@@ -54,7 +54,7 @@
 </head>
 <body>
 
-<div class="version-tag">v1.6.7</div>
+<div class="version-tag">v1.6.8</div>
 
 <div id="app" class="box">
     <div id="loginPage">
@@ -69,7 +69,9 @@
     <div id="registerPage" class="hidden">
         <h2>Yeni Kayıt</h2>
         <select id="regDomain"><option value="@ogr.ikc.edu.tr">Öğrenci</option><option value="@ikc.edu.tr">Akademik</option></select>
-        <input id="regId" type="text" placeholder="ID"><input id="regFullName" type="text" placeholder="Ad Soyad"><input id="regPass" type="password" placeholder="Şifre">
+        <input id="regId" type="text" placeholder="ID / No">
+        <input id="regFullName" type="text" placeholder="Ad Soyad">
+        <input id="regPhone" type="tel" placeholder="Telefon No (Örn: 05xxxxxxxxx)"> <input id="regPass" type="password" placeholder="Şifre">
         <button class="main-btn" onclick="handleRegister()">Kayıt Ol</button>
         <button onclick="switchPage('loginPage')" style="background:none; border:none; color:#666; cursor:pointer;">Geri Dön</button>
     </div>
@@ -131,15 +133,15 @@
         <table class="res-table"><thead><tr><th>Kullanıcı</th><th>Cihaz</th><th>Zaman</th><th>İşlem</th></tr></thead><tbody id="adminBody"></tbody></table>
         <button onclick="logout()" style="background:#666; color:white; margin-top:20px;">Güvenli Çıkış</button>
     </div>
-</div>
 
-<div id="detailModal" class="modal">
-    <div class="modal-content">
-        <span class="close-modal" onclick="closeModal()">×</span>
-        <h3 style="margin-top:0;">Randevu Detayları</h3>
-        <div id="modalDetails" style="font-size:13px; line-height:1.6;"></div>
-        <h4 style="margin-bottom:5px; margin-top:15px;">İşlem Geçmişi (Log)</h4>
-        <div id="modalLogs" class="log-box"></div>
+    <div id="detailModal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal" onclick="closeModal()">×</span>
+            <h3 style="margin-top:0;">Randevu Detayları</h3>
+            <div id="modalDetails" style="font-size:13px; line-height:1.6;"></div>
+            <h4 style="margin-bottom:5px; margin-top:15px;">İşlem Geçmişi (Log)</h4>
+            <div id="modalLogs" class="log-box"></div>
+        </div>
     </div>
 </div>
 
@@ -215,7 +217,7 @@ async function addEquipmentToDB() {
 }
 async function deleteDevice(id) { if(confirm("Emin misiniz?")) { await databases.deleteDocument(DB_ID, COLL_EQUIP, id); listAdminEquipments(); } }
 
-// REZERVASYON
+// REZERVASYON & LOGLAMA
 async function refreshView() {
     const lab = document.getElementById("labSelect").value, dateStr = document.getElementById("resDate").value;
     if(!lab || !dateStr) return;
@@ -359,7 +361,26 @@ async function checkSession() {
     } catch (e) {}
 }
 async function handleLogin() { const email = document.getElementById("loginId").value.trim() + document.getElementById("loginDomain").value; try { await account.createEmailSession(email, document.getElementById("loginPass").value); location.reload(); } catch (e) { alert(e.message); } }
-async function handleRegister() { const email = document.getElementById("regId").value.trim() + document.getElementById("regDomain").value; try { await account.create(ID.unique(), email, document.getElementById("regPass").value, document.getElementById("regFullName").value); await account.createEmailSession(email, document.getElementById("regPass").value); await account.createVerification("https://oktaykemah.github.io/lab-randevu/"); alert("Onay maili gönderildi."); await account.deleteSession('current'); switchPage('loginPage'); } catch (e) { alert(e.message); } }
+
+// HANDLE REGISTER (TELEFONLU)
+async function handleRegister() { 
+    const email = document.getElementById("regId").value.trim() + document.getElementById("regDomain").value;
+    const pass = document.getElementById("regPass").value;
+    const name = document.getElementById("regFullName").value;
+    const phone = document.getElementById("regPhone").value.trim();
+    
+    if(!phone) return alert("Telefon numarası zorunludur!");
+
+    try { 
+        await account.create(ID.unique(), email, pass, name); 
+        await account.createEmailSession(email, pass);
+        // Telefon numarasını tercihlere kaydet
+        await account.updatePrefs({ phone: phone });
+        await account.createVerification("https://oktaykemah.github.io/lab-randevu/"); 
+        alert("Onay maili gönderildi."); await account.deleteSession('current'); switchPage('loginPage'); 
+    } catch (e) { alert(e.message); } 
+}
+
 async function loadAdminCalendar() { const lab = document.getElementById("adminViewLab").value, date = document.getElementById("adminViewDate").value; const eqs = await databases.listDocuments(DB_ID, COLL_EQUIP, [Query.equal('lab', lab)]); await renderCalendar(lab, date, "adminCalHead", "adminCalBody", true, eqs.documents); }
 function switchPage(id) { document.querySelectorAll('.box > div').forEach(d => d.classList.add('hidden')); document.getElementById(id).classList.remove('hidden'); }
 async function logout() { await account.deleteSession('current'); location.reload(); }
