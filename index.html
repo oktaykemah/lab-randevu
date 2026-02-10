@@ -213,4 +213,417 @@ const SUPER_ADMINS = ["oktay.kemah@ikc.edu.tr", "saadet.guler@ikc.edu.tr", "mete
 const LAB_BOSSES = { "Numune Hazırlama Lab.": "Arş. Gör. Oktay Kemah", "Malzeme Karakterizasyon Lab.": "Öğr. Gör. Dr. Saadet Güler", "Üretim Lab.": "Arş.Gör.Dr. Metehan Atagür - Arş.Gör. Berk Özler" };
 const LAB_EMAILS = { "Numune Hazırlama Lab.": ["oktay.kemah@ikc.edu.tr"], "Malzeme Karakterizasyon Lab.": ["saadet.guler@ikc.edu.tr"], "Üretim Lab.": ["metehan.atagur@ikc.edu.tr", "berk.ozler@ikc.edu.tr"] };
 
-const hours = ["09:00-10:00", "10:00-11:0
+const hours = ["09:00-10:00", "10:00-11:00", "11:00-12:00", "12:00-13:00", "13:00-14:00", "14:00-15:00", "15:00-16:00", "16:00-17:00"];
+const restrictedHours = ["09:00-10:00", "16:00-17:00"]; 
+
+let currentUser = null, editingId = null, editingOwner = null, editingHistory = "";
+let appointmentsMap = {}, userMap = {}, equipmentTypeMap = {}; // Cihaz Tipleri İçin Map
+let selectedCells = [], tempAdminChanges = []; 
+
+// KOTA LİMİTLERİ
+const LIMIT_SHORT_HOURS = 15;
+const LIMIT_LONG_BLOCKS = 3;
+
+// HAFTA HESAPLAMA
+function getWeekNumber(d) {
+    d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+    d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay()||7));
+    var yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
+    var weekNo = Math.ceil(( ( (d - yearStart) / 86400000) + 1)/7);
+    return [d.getUTCFullYear(), weekNo];
+}
+
+// KOTA SORGULAMA (YENİ)
+async function checkUserQuota(targetDate) {
+    if(SUPER_ADMINS.includes(currentUser.email)) return { short: 0, long: 0, ok: true };
+
+    const targetWeek = getWeekNumber(new Date(targetDate));
+    // Tüm randevuları çekip filtrele (Performans için sadece kullanıcıya ait olanları çekiyoruz)
+    // Not: Appwrite 'limit' varsayılan 25. Fazlası için limit artırılmalı. Şimdilik 100 yapıyorum.
+    const res = await databases.listDocuments(DB_ID, COLL_APP, [Query.equal('name', currentUser.name), Query.limit(100)]);
+    
+    let usedShort = 0;
+    let usedLongBlocks = 0;
+
+    for(let doc of res.documents) {
+        // Düzenlenen randevuyu hesaba katma (çünkü o silinip yerine yenisi gelecek)
+        if(editingId && doc.$id === editingId) continue;
+
+        const docWeek = getWeekNumber(new Date(doc.date));
+        if (docWeek[0] === targetWeek[0] && docWeek[1] === targetWeek[1]) {
+            // Cihaz tipini bul
+            const type = equipmentTypeMap[doc.equipment] || 'short';
+            const duration = doc.time.split(', ').length; // Kaç saat
+            
+            if (type === 'long') {
+                // 1 Blok = 3 saat (Genelde). Ama veritabanında kaç saat kayıtlıysa ona göre blok hesabı
+                // Basit mantık: Her Long kaydı 1 blok sayalım (Çünkü sistem tek seferde 1 blok kaydediyor)
+                // Veya saat sayısına göre: Math.ceil(duration / 3)
+                usedLongBlocks += 1; 
+            } else {
+                usedShort += duration;
+            }
+        }
+    }
+    return { short: usedShort, long: usedLongBlocks, ok: true };
+}
+
+// UI UPDATE: KOTA BİLGİSİ
+async function updateQuotaDisplay(dateVal) {
+    const d = dateVal ? new Date(dateVal) : new Date();
+    const stats = await checkUserQuota(d);
+    const div = document.getElementById("quotaDisplay");
+    
+    if(SUPER_ADMINS.includes(currentUser?.email)) {
+        div.classList.add("hidden"); return;
+    }
+    
+    div.classList.remove("hidden");
+    div.innerHTML = `
+        <span>📊 Haftalık Kotanız (${getWeekNumber(d)[1]}. Hafta):</span>
+        <span style="color: ${stats.short >= LIMIT_SHORT_HOURS ? 'red' : 'green'}">Kısa: ${stats.short}/${LIMIT_SHORT_HOURS} Saat</span>
+        <span style="color: ${stats.long >= LIMIT_LONG_BLOCKS ? 'red' : 'green'}">Uzun: ${stats.long}/${LIMIT_LONG_BLOCKS} Blok</span>
+    `;
+}
+
+function sendEmail(toEmails, subject, messageBody) {
+    const targets = Array.isArray(toEmails) ? toEmails : [toEmails];
+    targets.forEach(email => {
+        if(!email || email === "Bilinmiyor") return;
+        emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, { to_email: email, subject: subject, message: messageBody })
+        .then(function() { console.log('Mail gönderildi:', email); }, function(error) { console.error('Mail hatası:', error); });
+    });
+}
+
+function getHoliday(dateStr) {
+    const d = new Date(dateStr), day = d.getDay(), monthDay = (d.getMonth() + 1) + "-" + d.getDate();
+    if (day === 0 || day === 6) return "Hafta Sonu (Laboratuvar Kapalı)";
+    const h = {"1-1":"Yılbaşı","4-23":"23 Nisan","5-1":"1 Mayıs","5-19":"19 Mayıs","7-15":"15 Temmuz","8-30":"30 Ağustos","10-29":"29 Ekim"};
+    const r2026 = {"3-19":"Bayram Arifesi","3-20":"Ramazan Bayramı","3-21":"Ramazan Bayramı","3-22":"Ramazan Bayramı","5-26":"Bayram Arifesi","5-27":"Kurban Bayramı","5-28":"Kurban Bayramı","5-29":"Kurban Bayramı","5-30":"Kurban Bayramı"};
+    return h[monthDay] || r2026[monthDay] || null;
+}
+
+function canProcess(dateStr, type) {
+    if (SUPER_ADMINS.includes(currentUser?.email)) return true;
+    const targetDate = new Date(dateStr); targetDate.setHours(0, 0, 0, 0); 
+    const today = new Date(); today.setHours(0, 0, 0, 0); 
+    if (type === 'booking') return targetDate > today;
+    const diffTime = targetDate - today; const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    if (type === 'delete') return diffDays >= 1; 
+    if (type === 'edit') return diffDays >= 2; 
+    return false;
+}
+
+async function loadUserProfiles() {
+    try {
+        const res = await databases.listDocuments(DB_ID, COLL_PROFILES, [Query.orderAsc('studentId')]);
+        document.getElementById("userProfilesBody").innerHTML = res.documents.map(u => `<tr><td style="font-weight:bold;">${u.studentId}</td><td>${u.name}</td><td>${u.phone}</td></tr>`).join('');
+        res.documents.forEach(u => { userMap[u.name] = { id: u.studentId, phone: u.phone, email: u.email || "Bilinmiyor" }; });
+    } catch (e) {}
+}
+
+async function listAdminEquipments() {
+    const lab = document.getElementById("adminLabSelect").value;
+    const res = await databases.listDocuments(DB_ID, COLL_EQUIP, [Query.equal('lab', lab)]);
+    const listDiv = document.getElementById("adminEquipList"), saveBtn = document.getElementById("saveEnvanterBtn");
+    saveBtn.classList.toggle("hidden", res.total === 0);
+    listDiv.innerHTML = res.documents.map(d => `
+        <div class="equip-row" data-id="${d.$id}" style="display:flex; justify-content:space-between; align-items:center; padding:10px; border-bottom:1px solid #eee;">
+            <span style="font-size:13px; font-weight:bold;">${d.name}</span>
+            <div style="display:flex; gap:5px;">
+                <select class="type-select" style="padding:5px; font-size:11px; width:auto; border:1px solid #ccc;">
+                    <option value="short" ${d.type !== 'long' ? 'selected' : ''}>Kısa (Saatlik)</option>
+                    <option value="long" ${d.type === 'long' ? 'selected' : ''}>Uzun (Blok)</option>
+                </select>
+                <select class="status-select" style="padding:5px; font-size:11px; width:auto;">
+                    <option value="Kullanılabilir" ${d.status === 'Kullanılabilir' ? 'selected' : ''}>Kullanılabilir</option>
+                    <option value="Bakımda" ${d.status === 'Bakımda' ? 'selected' : ''}>Bakımda</option>
+                    <option value="Kullanım Dışı" ${d.status === 'Kullanım Dışı' ? 'selected' : ''}>Kullanım Dışı</option>
+                </select>
+                <button onclick="deleteDevice('${d.$id}')" style="background:var(--danger); color:white; border:none; border-radius:4px; padding:5px 12px; cursor:pointer; font-size:11px;">Sil</button>
+            </div>
+        </div>`).join('');
+}
+
+async function saveEnvanterChanges() {
+    const rows = document.querySelectorAll('.equip-row'), btn = document.getElementById("saveEnvanterBtn");
+    btn.innerText = "Kaydediliyor..."; btn.disabled = true;
+    try {
+        for (let row of rows) {
+            const id = row.getAttribute('data-id'), newStatus = row.querySelector('.status-select').value, newType = row.querySelector('.type-select').value;
+            await databases.updateDocument(DB_ID, COLL_EQUIP, id, { status: newStatus, type: newType });
+        }
+        alert("Envanter güncellendi.");
+    } catch (e) { alert("Hata: " + e.message); }
+    finally { btn.innerText = "Envanter Değişikliklerini Kaydet"; btn.disabled = false; listAdminEquipments(); }
+}
+
+async function addEquipmentToDB() {
+    const lab = document.getElementById("adminLabSelect").value, name = document.getElementById("newEquipName").value.trim(), type = document.getElementById("newEquipType").value;
+    if(name) { await databases.createDocument(DB_ID, COLL_EQUIP, ID.unique(), { name, lab, status: 'Kullanılabilir', type: type }); document.getElementById("newEquipName").value = ""; listAdminEquipments(); }
+}
+async function deleteDevice(id) { if(confirm("Emin misiniz?")) { await databases.deleteDocument(DB_ID, COLL_EQUIP, id); listAdminEquipments(); } }
+
+window.toggleSlot = function(cell, equipName, timeSlot, isLongTerm) {
+    if (cell.classList.contains('slot-occupied') || cell.classList.contains('slot-inactive') || cell.classList.contains('slot-me') || cell.classList.contains('slot-other') || cell.classList.contains('slot-blocked')) return;
+    let slotsToAdd = [];
+    if(isLongTerm) {
+        if(timeSlot === "10:00-11:00") slotsToAdd = ["10:00-11:00", "11:00-12:00", "12:00-13:00"];
+        else if(timeSlot === "13:00-14:00") slotsToAdd = ["13:00-14:00", "14:00-15:00", "15:00-16:00"];
+        else return;
+    } else { slotsToAdd = [timeSlot]; }
+    const firstIndex = selectedCells.findIndex(s => s.equip === equipName && s.time === slotsToAdd[0]);
+    if (firstIndex > -1) {
+        slotsToAdd.forEach(t => { const idx = selectedCells.findIndex(s => s.equip === equipName && s.time === t); if(idx > -1) selectedCells.splice(idx, 1); });
+        cell.classList.remove('slot-selected'); cell.innerText = isLongTerm ? (timeSlot === "10:00-11:00" ? "10:00-13:00" : "13:00-16:00") : "BOŞ";
+    } else {
+        slotsToAdd.forEach(t => selectedCells.push({ equip: equipName, time: t })); cell.classList.add('slot-selected'); cell.innerText = "SEÇİLDİ";
+    }
+}
+
+window.toggleAdminBlock = function(cell, lab, date, equip, time, docId, isRestrictedDefault) {
+    const changeId = `${equip}-${time}`; const existingIndex = tempAdminChanges.findIndex(c => c.id === changeId); let actionType; 
+    if (docId) { 
+        actionType = 'unblock'; if (cell.classList.contains('slot-pending')) { cell.classList.remove('slot-pending'); cell.innerText = isRestrictedDefault ? "AÇIK" : "KAPALI"; if(existingIndex > -1) tempAdminChanges.splice(existingIndex, 1); return; }
+        cell.classList.add('slot-pending'); cell.innerText = "KAPATILACAK"; 
+    } else {
+        actionType = isRestrictedDefault ? 'unblock' : 'block'; if (cell.classList.contains('slot-pending')) { cell.classList.remove('slot-pending'); cell.innerText = isRestrictedDefault ? "KAPALI" : "BOŞ"; if(existingIndex > -1) tempAdminChanges.splice(existingIndex, 1); return; }
+        cell.classList.add('slot-pending'); cell.innerText = actionType === 'block' ? "KAPATILACAK" : "AÇILACAK";
+    }
+    if(existingIndex === -1) tempAdminChanges.push({ id: changeId, lab, date, equip, time, docId, isRestrictedDefault });
+    if(tempAdminChanges.length > 0) document.getElementById("saveAdminCalBtn").classList.remove("hidden"); else document.getElementById("saveAdminCalBtn").classList.add("hidden");
+}
+
+window.refreshAdminTable = function() { tempAdminChanges = []; loadAdminCalendar(); document.getElementById("saveAdminCalBtn").classList.add("hidden"); }
+
+async function saveAdminCalendarChanges() {
+    if(tempAdminChanges.length === 0) return;
+    const btn = document.getElementById("saveAdminCalBtn"); btn.innerText = "Kaydediliyor..."; btn.disabled = true;
+    try {
+        for(let change of tempAdminChanges) {
+            if (change.docId) { try { await databases.deleteDocument(DB_ID, COLL_APP, change.docId); } catch(e){} } 
+            else { await databases.createDocument(DB_ID, COLL_APP, ID.unique(), { name: change.isRestrictedDefault ? "LAB_ACIK" : "LAB_KAPALI", lab: change.lab, date: change.date, equipment: change.equip, time: change.time, history: `${change.isRestrictedDefault ? "Açıldı" : "Kapatıldı"} işlemi: ${currentUser.name}` }); }
+        }
+        alert("Tablo güncellendi."); tempAdminChanges = []; loadAdminCalendar();
+    } catch(e) { alert("Hata: " + e.message); }
+    finally { btn.innerText = "Tablo Değişikliklerini Kaydet"; btn.disabled = false; }
+}
+
+async function refreshView() {
+    const lab = document.getElementById("labSelect").value, dateStr = document.getElementById("resDate").value;
+    if(!lab || !dateStr) return;
+    document.getElementById("labInfoCard").innerText = `Sorumlu: ${LAB_BOSSES[lab]}`;
+    document.getElementById("labInfoCard").classList.remove("hidden");
+    document.getElementById("statusSection").classList.remove("hidden");
+    const holiday = getHoliday(dateStr), notice = document.getElementById("holidayNotice"), content = document.getElementById("calendarContent");
+    if(!SUPER_ADMINS.includes(currentUser?.email)) {
+        if(holiday) { notice.innerText = `⚠️ ${holiday}`; notice.classList.remove("hidden"); content.classList.add("hidden"); return; }
+        if(!canProcess(dateStr, 'booking')) { notice.innerText = `⚠️ Aynı gün randevu alınamaz.`; notice.classList.remove("hidden"); content.classList.add("hidden"); return; }
+    }
+    notice.classList.add("hidden"); content.classList.remove("hidden");
+    if (!editingId) selectedCells = [];
+    
+    // Cihazları ve Tiplerini Çek
+    const allEquips = await databases.listDocuments(DB_ID, COLL_EQUIP, [Query.equal('lab', lab)]);
+    equipmentTypeMap = {}; // Reset map
+    allEquips.documents.forEach(d => { equipmentTypeMap[d.name] = d.type || 'short'; });
+
+    // Kotayı Hesapla ve Göster
+    updateQuotaDisplay(dateStr);
+
+    await renderCalendar(lab, dateStr, "calHead", "calBody", false, allEquips.documents);
+}
+
+async function renderCalendar(lab, date, headId, bodyId, isAdminView, devices) {
+    const apps = await databases.listDocuments(DB_ID, COLL_APP, [Query.equal('lab', lab), Query.equal('date', date)]);
+    document.getElementById(headId).innerHTML = `<tr><th>Saat</th>${devices.map(d => `<th>${d.name} ${d.type === 'long' ? '<br>(Uzun)' : ''}</th>`).join('')}</tr>`;
+    document.getElementById(bodyId).innerHTML = hours.map(h => {
+        const row = devices.map(d => {
+            const isLong = d.type === 'long';
+            if(isLong) {
+                if (["11:00-12:00", "12:00-13:00", "14:00-15:00", "15:00-16:00"].includes(h)) return ""; 
+                if (["09:00-10:00", "16:00-17:00"].includes(h)) return `<td class="slot-inactive" style="background:#eee;">-</td>`;
+            }
+            if(d.status && d.status !== 'Kullanılabilir') return isLong ? `<td rowspan="3" class="slot-inactive">${d.status}</td>` : `<td class="slot-inactive">${d.status === 'Bakımda' ? 'BAKIM' : 'K.DIŞI'}</td>`;
+            
+            const isRestricted = restrictedHours.includes(h);
+            const openDoc = apps.documents.find(a => a.time.includes(h) && a.equipment.includes(d.name) && a.name === "LAB_ACIK");
+            const closeDoc = apps.documents.find(a => a.time.includes(h) && a.equipment.includes(d.name) && a.name === "LAB_KAPALI");
+            const m = apps.documents.find(a => a.time.includes(h) && a.equipment.includes(d.name) && a.name !== "LAB_ACIK" && a.name !== "LAB_KAPALI");
+
+            let cellClass = "slot-free", cellText = isLong ? (h === "10:00-11:00" ? "10:00-13:00" : "13:00-16:00") : "BOŞ", onClick = `toggleSlot(this, '${d.name}', '${h}', ${isLong})`, rowSpanAttr = isLong ? 'rowspan="3"' : '';
+
+            if (m) {
+                if (editingId && m && m.$id === editingId) { const isSelected = selectedCells.find(s => s.equip === d.name && s.time === h); cellClass = isSelected ? "slot-selected" : "slot-free"; cellText = isSelected ? "SEÇİLDİ" : cellText; } 
+                else { cellClass = (isAdminView || SUPER_ADMINS.includes(currentUser.email)) ? "slot-occupied" : (m.name === currentUser.name ? "slot-me" : "slot-other"); cellText = (isAdminView || SUPER_ADMINS.includes(currentUser.email)) ? m.name : (m.name === currentUser.name ? "BEN" : "DOLU"); onClick = ""; }
+                return `<td ${rowSpanAttr} class="${cellClass}" ${onClick ? `onclick="${onClick}"` : ''}>${cellText}</td>`;
+            }
+            if (isAdminView) {
+                if (isRestricted) { if (openDoc) { cellClass = "slot-free slot-admin-clickable"; cellText = "AÇIK"; onClick = `toggleAdminBlock(this, '${lab}', '${date}', '${d.name}', '${h}', '${openDoc.$id}', true)`; } else { cellClass = "slot-blocked slot-admin-clickable"; cellText = "KAPALI"; onClick = `toggleAdminBlock(this, '${lab}', '${date}', '${d.name}', '${h}', null, true)`; } } 
+                else { if (closeDoc) { cellClass = "slot-blocked slot-admin-clickable"; cellText = "KAPALI"; onClick = `toggleAdminBlock(this, '${lab}', '${date}', '${d.name}', '${h}', '${closeDoc.$id}', false)`; } else { cellClass = "slot-free slot-admin-clickable"; cellText = "BOŞ"; onClick = `toggleAdminBlock(this, '${lab}', '${date}', '${d.name}', '${h}', null, false)`; } }
+                return `<td ${rowSpanAttr} class="${cellClass}" onclick="${onClick}">${cellText}</td>`;
+            }
+            if (isRestricted && !openDoc) return `<td ${rowSpanAttr} class="slot-blocked">KAPALI</td>`;
+            if (closeDoc) return `<td ${rowSpanAttr} class="slot-blocked">KAPALI</td>`;
+            const isSelected = selectedCells.find(s => s.equip === d.name && s.time === h);
+            if(isSelected) { cellClass = "slot-selected"; cellText = "SEÇİLDİ"; }
+            return `<td ${rowSpanAttr} class="${cellClass}" onclick="${onClick}">${cellText}</td>`;
+        }).join('');
+        return `<tr><td><b>${h}</b></td>${row}</tr>`;
+    }).join('');
+}
+
+// KAYIT İŞLEMİ (KOTA KONTROLÜ EKLENDİ)
+async function saveBooking() {
+    const lab = document.getElementById("labSelect").value, date = document.getElementById("resDate").value;
+    if (selectedCells.length === 0) return alert("Lütfen tablodan seçim yapınız!");
+
+    // 1. KOTA HESABI (YENİ EKLEME)
+    let proposedShort = 0;
+    let proposedLong = 0;
+    const uniqueEquipsCheck = [...new Set(selectedCells.map(s => s.equip))];
+    
+    uniqueEquipsCheck.forEach(eq => {
+        const type = equipmentTypeMap[eq] || 'short';
+        if (type === 'long') proposedLong += 1; // 1 seçim = 1 blok
+        else {
+            const count = selectedCells.filter(s => s.equip === eq).length;
+            proposedShort += count;
+        }
+    });
+
+    const currentStats = await checkUserQuota(date);
+    if ((currentStats.short + proposedShort) > LIMIT_SHORT_HOURS) {
+        return alert(`⚠️ Kısa süreli cihaz kullanım kotanız doldu! (Haftalık Max: ${LIMIT_SHORT_HOURS} Saat)\nLütfen laboratuvar sorumlusu ile iletişime geçiniz.`);
+    }
+    if ((currentStats.long + proposedLong) > LIMIT_LONG_BLOCKS) {
+        return alert(`⚠️ Uzun süreli cihaz kullanım kotanız doldu! (Haftalık Max: ${LIMIT_LONG_BLOCKS} Blok)\nLütfen laboratuvar sorumlusu ile iletişime geçiniz.`);
+    }
+
+    // 2. ÇAKIŞMA KONTROLÜ
+    const res = await databases.listDocuments(DB_ID, COLL_APP, [Query.equal('date', date), Query.equal('lab', lab)]);
+    for (let cell of selectedCells) { const conflict = res.documents.find(doc => doc.$id !== editingId && doc.equipment.includes(cell.equip) && doc.time.includes(cell.time) && doc.name !== "LAB_ACIK"); if(conflict) return alert(`Hata: ${cell.equip} cihazı ${cell.time} saatinde dolu!`); }
+    
+    let finalOwner = currentUser.name, logEntry = `Oluşturuldu: ${currentUser.name} - ${new Date().toLocaleString()}\n`, isEditAction = false;
+    if(editingId) { isEditAction = true; await databases.deleteDocument(DB_ID, COLL_APP, editingId); finalOwner = editingOwner; const editor = currentUser.name; logEntry = editingHistory + `Düzenlendi: ${editor} tarafından - ${new Date().toLocaleString()}\n`; document.getElementById("editModeNotice").classList.add("hidden"); }
+
+    const uniqueEquips = [...new Set(selectedCells.map(s => s.equip))];
+    try {
+        for (let eq of uniqueEquips) {
+            const timesForThisEquip = selectedCells.filter(s => s.equip === eq).map(s => s.time);
+            await databases.createDocument(DB_ID, COLL_APP, ID.unique(), { name: finalOwner, lab, date, equipment: eq, time: timesForThisEquip.join(', '), history: logEntry });
+        }
+        
+        const isAdmin = SUPER_ADMINS.includes(currentUser.email);
+        if (isAdmin && isEditAction && finalOwner !== currentUser.name) {
+            const userEmail = userMap[finalOwner]?.email || "Bilinmiyor"; if(userEmail !== "Bilinmiyor") sendEmail(userEmail, "Randevunuz Düzenlendi", `${date} tarihindeki randevunuz yönetici tarafından güncellendi.`);
+        } else if (!isAdmin) {
+            const supervisorEmails = LAB_EMAILS[lab]; 
+            // SADECE DEĞİŞİKLİK VE İPTALDE MAİL GİTSİN (Yeni Kayıtta Gitmesin istendiğinde burayı düzenledik)
+            if(isEditAction) {
+                sendEmail(supervisorEmails, `Randevu Düzenlendi`, `${currentUser.name}, ${date} tarihi için işlem yaptı.`);
+            }
+        }
+
+        alert("İşlem Başarılı!"); 
+        editingId = null; editingOwner = null; editingHistory = ""; selectedCells = []; 
+        refreshView(); loadUserData(); if(SUPER_ADMINS.includes(currentUser.email)) loadAdminData();
+    } catch (e) { alert("Hata: " + e.message); }
+}
+
+async function editRes(id, lab, date, equipStr, timeStr, owner, history) {
+    if (!canProcess(date, 'edit')) { alert("Süresi dolmuş randevular düzenlenemez!"); return; }
+    editingId = id; editingOwner = owner; editingHistory = history; selectedCells = [];
+    const eqArr = equipStr.split(', '); const tmArr = timeStr.split(', ');
+    eqArr.forEach(eq => { tmArr.forEach(tm => { selectedCells.push({ equip: eq, time: tm }); }); });
+    document.getElementById("editModeNotice").classList.remove("hidden");
+    document.getElementById("labSelect").value = lab; document.getElementById("resDate").value = date.split('T')[0];
+    await refreshView(); document.getElementById("bookingPage").classList.remove("hidden"); document.getElementById("bookingPage").scrollIntoView({ behavior: 'smooth' });
+}
+
+async function deleteRes(id, isAdmin) { 
+    if(!confirm("Silinsin mi?")) return; 
+    try {
+        const doc = await databases.getDocument(DB_ID, COLL_APP, id);
+        if (!isAdmin && !canProcess(doc.date, 'delete')) { alert("İptal süresi dolmuştur."); return; }
+
+        await databases.deleteDocument(DB_ID, COLL_APP, id);
+        
+        if (isAdmin && doc.name !== currentUser.name) {
+            const userEmail = userMap[doc.name]?.email || "Bilinmiyor";
+            if(userEmail !== "Bilinmiyor") sendEmail(userEmail, "Randevu İptali", `${doc.date} tarihindeki randevunuz yönetici tarafından iptal edildi.`);
+        } else if (!isAdmin) {
+            const supervisorEmails = LAB_EMAILS[doc.lab]; sendEmail(supervisorEmails, "Randevu İptali", `${doc.name}, ${doc.date} tarihindeki randevusunu iptal etti.`);
+        }
+
+        isAdmin ? loadAdminData() : loadUserData(); refreshView();
+    } catch(e) { alert("Hata: " + e.message); }
+}
+
+window.showDetails = function(id) {
+    const doc = appointmentsMap[id]; if(!doc) return alert("Veri bulunamadı.");
+    const userDetail = userMap[doc.name] || { id: '-', phone: '-' };
+    document.getElementById("modalDetails").innerHTML = `<b>Öğrenci:</b> ${doc.name} (${userDetail.id})<br><b>Telefon:</b> ${userDetail.phone}<br><b>Laboratuvar:</b> ${doc.lab}<br><b>Tarih:</b> ${formatDate(doc.date)}<br><b>Cihazlar:</b> ${doc.equipment}<br><b>Saatler:</b> ${doc.time}`;
+    document.getElementById("modalLogs").innerText = doc.history || "Kayıt yok."; document.getElementById("detailModal").classList.add("active");
+}
+window.closeModal = function() { document.getElementById("detailModal").classList.remove("active"); }
+
+function formatDate(dateStr) { if(!dateStr) return ""; const d = new Date(dateStr); return `${d.getDate().toString().padStart(2, '0')}.${(d.getMonth() + 1).toString().padStart(2, '0')}.${d.getFullYear()}`; }
+
+async function loadAdminData() {
+    const res = await databases.listDocuments(DB_ID, COLL_APP, [Query.orderDesc('$createdAt')]);
+    document.getElementById("adminBody").innerHTML = res.documents.map(doc => {
+        appointmentsMap[doc.$id] = doc; if (doc.name === "LAB_KAPALI" || doc.name === "LAB_ACIK") return ""; 
+        const past = !canProcess(doc.date, 'edit'); const userDetail = userMap[doc.name] || { id: '-', phone: '-' };
+        return `<tr><td>${userDetail.id}</td><td>${doc.name}</td><td>${userDetail.phone}</td><td>${doc.equipment}</td><td>${formatDate(doc.date)} / ${doc.time}</td><td><button class="info-btn" onclick="showDetails('${doc.$id}')">i</button><button class="edit-btn" ${past ? 'disabled' : ''} onclick="editRes('${doc.$id}', '${doc.lab}', '${doc.date}', '${doc.equipment}', '${doc.time}', '${doc.name}', \`${doc.history || ''}\`)">${past ? '-' : 'Düz.'}</button><button class="delete-btn" ${past ? 'disabled' : ''} onclick="deleteRes('${doc.$id}', true)">${past ? '-' : 'Sil'}</button></td></tr>`;
+    }).join('');
+}
+
+async function loadUserData() {
+    const res = await databases.listDocuments(DB_ID, COLL_APP, [Query.equal('name', currentUser.name), Query.orderDesc('$createdAt')]);
+    document.getElementById("userBody").innerHTML = res.documents.map(doc => {
+        appointmentsMap[doc.$id] = doc;
+        const canEdit = canProcess(doc.date, 'edit'); const canDelete = canProcess(doc.date, 'delete');
+        return `<tr><td><b>${doc.lab}</b><br>${doc.equipment}</td><td>${formatDate(doc.date)}<br>${doc.time}</td><td><button class="info-btn" onclick="showDetails('${doc.$id}')">i</button><button class="edit-btn" ${canEdit ? '' : 'disabled'} onclick="editRes('${doc.$id}', '${doc.lab}', '${doc.date}', '${doc.equipment}', '${doc.time}', '${doc.name}', \`${doc.history || ''}\`)">${canEdit ? 'Düz.' : '-'}</button><button class="delete-btn" ${canDelete ? '' : 'disabled'} onclick="deleteRes('${doc.$id}', false)">${canDelete ? 'İptal' : '-'}</button></td></tr>`;
+    }).join('');
+}
+
+async function checkSession() {
+    try {
+        currentUser = await account.get();
+        document.getElementById("loginPage").classList.add("hidden"); document.getElementById("bookingPage").classList.remove("hidden");
+        document.getElementById("userGreet").innerText = "Merhaba, " + currentUser.name;
+        if(SUPER_ADMINS.includes(currentUser.email)) { document.getElementById("adminLink").classList.remove("hidden"); await loadUserProfiles(); listAdminEquipments(); loadAdminData(); tempAdminChanges = []; }
+        loadUserData();
+    } catch (e) {}
+}
+async function handleLogin() { const email = document.getElementById("loginId").value.trim() + document.getElementById("loginDomain").value; try { await account.createEmailSession(email, document.getElementById("loginPass").value); location.reload(); } catch (e) { alert(e.message); } }
+
+async function handleRegister() { 
+    const idVal = document.getElementById("regId").value.trim(); const email = idVal + document.getElementById("regDomain").value;
+    const pass = document.getElementById("regPass").value; const name = document.getElementById("regFullName").value; const phone = document.getElementById("regPhone").value.trim();
+    if(!phone) return alert("Telefon zorunlu!");
+    try { await account.create(ID.unique(), email, pass, name); await account.createEmailSession(email, pass); await account.updatePrefs({ phone: phone });
+        try { await databases.createDocument(DB_ID, COLL_PROFILES, ID.unique(), { studentId: idVal, name: name, phone: phone, email: email }); } catch(err) {}
+        await account.createVerification("https://oktaykemah.github.io/lab-randevu/"); alert("Mail gönderildi."); await account.deleteSession('current'); switchPage('loginPage'); 
+    } catch (e) { alert(e.message); } 
+}
+
+async function loadAdminCalendar() { const lab = document.getElementById("adminViewLab").value, date = document.getElementById("adminViewDate").value; const eqs = await databases.listDocuments(DB_ID, COLL_EQUIP, [Query.equal('lab', lab)]); await renderCalendar(lab, date, "adminCalHead", "adminCalBody", true, eqs.documents); }
+function switchPage(id) { document.querySelectorAll('.box > div').forEach(d => d.classList.add('hidden')); document.getElementById(id).classList.remove('hidden'); }
+async function logout() { await account.deleteSession('current'); location.reload(); }
+
+window.onload = async () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const userId = urlParams.get('userId'), secret = urlParams.get('secret');
+    if (userId && secret) {
+        try { await account.updateVerification(userId, secret);
+            const msg = document.getElementById("verifyMessage"); msg.innerText = "✅ Hesabınız başarıyla onaylandı!"; msg.classList.remove("hidden"); msg.classList.add("verify-success");
+            window.history.replaceState({}, document.title, window.location.pathname);
+        } catch (error) { const msg = document.getElementById("verifyMessage"); msg.innerText = "❌ Hata: " + error.message; msg.classList.remove("hidden"); msg.classList.add("verify-error"); }
+    }
+    checkSession();
+};
+</script>
+</body>
+</html>
