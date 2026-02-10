@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>IKC Lab Booking - v1.6.9</title>
+  <title>IKC Lab Booking - v1.7.0</title>
   <script src="https://cdn.jsdelivr.net/npm/appwrite@13.0.1"></script>
   <style>
     :root { --primary: #0066cc; --admin: #2c3e50; --danger: #e74c3c; --success: #27ae60; --warning: #f39c12; --info: #17a2b8; --occupied-other: #fdeaea; --occupied-me: #e3f2fd; --holiday: #fff3e0; }
@@ -44,7 +44,7 @@
     .info-card { background: #e3f2fd; padding: 12px; border-radius: 8px; color: #0d47a1; font-size: 13px; font-weight: bold; margin-bottom: 15px; border-left: 5px solid var(--primary); line-height: 1.4; }
     .holiday-msg { background: var(--holiday); color: #e65100; padding: 15px; border-radius: 8px; text-align: center; font-weight: bold; margin-bottom: 15px; border: 1px solid #ffe0b2; }
     
-    /* Doğrulama Mesajı Stili */
+    /* Doğrulama Mesajı */
     .verify-msg { padding: 15px; border-radius: 8px; text-align: center; font-weight: bold; margin-bottom: 15px; font-size: 14px; }
     .verify-success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
     .verify-error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
@@ -59,16 +59,14 @@
 </head>
 <body>
 
-<div class="version-tag">v1.6.9</div>
+<div class="version-tag">v1.7.0</div>
 
 <div id="app" class="box">
     <div id="loginPage">
         <h2>IKC Lab Randevu</h2>
-        
         <div id="verifyMessage" class="hidden verify-msg"></div>
-
         <select id="loginDomain"><option value="@ogr.ikc.edu.tr">Öğrenci</option><option value="@ikc.edu.tr">Akademik</option></select>
-        <input id="loginId" type="text" placeholder="ID (Örn: 160411006)">
+        <input id="loginId" type="text" placeholder="ID (Örn: y240219010)">
         <input id="loginPass" type="password" placeholder="Şifre">
         <button class="main-btn" onclick="handleLogin()">Giriş Yap</button>
         <div style="text-align: center; margin-top: 15px;"><a href="#" onclick="switchPage('registerPage')" style="color: var(--primary); text-decoration: none; font-size: 13px;">Yeni Hesap Oluştur</a></div>
@@ -77,7 +75,7 @@
     <div id="registerPage" class="hidden">
         <h2>Yeni Kayıt</h2>
         <select id="regDomain"><option value="@ogr.ikc.edu.tr">Öğrenci</option><option value="@ikc.edu.tr">Akademik</option></select>
-        <input id="regId" type="text" placeholder="ID / No">
+        <input id="regId" type="text" placeholder="ID (Örn: y240219010)">
         <input id="regFullName" type="text" placeholder="Ad Soyad">
         <input id="regPhone" type="tel" placeholder="Telefon No (Örn: 05xxxxxxxxx)">
         <input id="regPass" type="password" placeholder="Şifre">
@@ -123,6 +121,17 @@
     <div id="adminPage" class="hidden admin-mode">
         <h2>Süper Admin Paneli</h2>
         <button onclick="switchPage('bookingPage')" style="background: var(--primary); color: white; border: none; padding: 10px; border-radius: 8px; cursor: pointer;">Randevu Paneline Dön</button>
+        
+        <div style="background: #fdfdfd; padding: 20px; border-radius: 10px; margin-top: 20px; border: 1px solid #ddd;">
+            <h3>Kayıtlı Kullanıcı Havuzu</h3>
+            <div style="max-height: 300px; overflow-y: auto;">
+                <table class="res-table" style="margin-top:0;">
+                    <thead style="background:#f9f9f9; position: sticky; top: 0;"><tr><th>ID</th><th>Ad Soyad</th><th>Telefon</th></tr></thead>
+                    <tbody id="userProfilesBody"></tbody>
+                </table>
+            </div>
+        </div>
+
         <div style="background: #fdfdfd; padding: 20px; border-radius: 10px; margin-top: 20px; border: 1px solid #ddd;">
             <h3>Envanter & Cihaz Yönetimi</h3>
             <div style="display:flex; gap:10px; margin-bottom: 15px;">
@@ -133,6 +142,7 @@
             <div id="adminEquipList"></div>
             <button id="saveEnvanterBtn" class="save-envanter-btn hidden" onclick="saveEnvanterChanges()">Envanter Değişikliklerini Kaydet</button>
         </div>
+        
         <div style="background: #f0f4f8; padding: 15px; border-radius: 10px; margin-top: 20px; border: 1px solid #d1d9e0;">
             <h3>Doluluk İzleme</h3>
             <div style="display:flex; gap:10px;"><select id="adminViewLab" onchange="loadAdminCalendar()" style="flex:2;"><option value="Malzeme Karakterizasyon Lab.">Malzeme Karakterizasyon Lab.</option><option value="Numune Hazırlama Lab.">Numune Hazırlama Lab.</option><option value="Üretim Lab.">Üretim Lab.</option></select><input id="adminViewDate" type="date" onchange="loadAdminCalendar()" style="flex:1;"></div>
@@ -160,12 +170,16 @@ const client = new Client().setEndpoint('https://cloud.appwrite.io/v1').setProje
 const account = new Account(client);
 const databases = new Databases(client);
 
-const DB_ID = '6981c42a00202c6cdf0e', COLL_APP = 'appointments', COLL_EQUIP = 'equipments';
+// KOLLEKSİYON ID'LERİ (Lütfen 'profiles' koleksiyonunu veritabanında oluşturun)
+const DB_ID = '6981c42a00202c6cdf0e';
+const COLL_APP = 'appointments';
+const COLL_EQUIP = 'equipments';
+const COLL_PROFILES = 'profiles'; // YENİ KOLEKSİYON
+
 const SUPER_ADMINS = ["oktay.kemah@ikc.edu.tr", "saadet.guler@ikc.edu.tr", "metehan.atagur@ikc.edu.tr", "berk.ozler@ikc.edu.tr"];
 const LAB_BOSSES = { "Numune Hazırlama Lab.": "Arş. Gör. Oktay Kemah", "Malzeme Karakterizasyon Lab.": "Öğr. Gör. Dr. Saadet Güler", "Üretim Lab.": "Arş.Gör.Dr. Metehan Atagür - Arş.Gör. Berk Özler" };
 const hours = ["09:00-10:00", "10:00-11:00", "11:00-12:00", "12:00-13:00", "13:00-14:00", "14:00-15:00", "15:00-16:00", "16:00-17:00"];
 let currentUser = null, editingId = null, preSelectedEquips = [], preSelectedTimes = [], editingOwner = null, editingHistory = "";
-// Hafıza Haritası (Cache)
 let appointmentsMap = {};
 
 // TIME UTILS
@@ -185,6 +199,20 @@ function canProcess(dateStr, type) {
     if (type === 'booking') return target > today;
     const limit = new Date(target); limit.setDate(limit.getDate() - 1);
     return today < limit;
+}
+
+// KULLANICI LİSTELEME (YENİ)
+async function loadUserProfiles() {
+    try {
+        const res = await databases.listDocuments(DB_ID, COLL_PROFILES, [Query.orderAsc('studentId')]);
+        document.getElementById("userProfilesBody").innerHTML = res.documents.map(u => `
+            <tr>
+                <td style="font-weight:bold;">${u.studentId}</td>
+                <td>${u.name}</td>
+                <td>${u.phone}</td>
+            </tr>
+        `).join('');
+    } catch (e) { console.log("Kullanıcı listesi çekilemedi (Henüz veri yok)."); }
 }
 
 // ENVANTER
@@ -365,15 +393,21 @@ async function checkSession() {
         document.getElementById("loginPage").classList.add("hidden");
         document.getElementById("bookingPage").classList.remove("hidden");
         document.getElementById("userGreet").innerText = "Merhaba, " + currentUser.name;
-        if(SUPER_ADMINS.includes(currentUser.email)) { document.getElementById("adminLink").classList.remove("hidden"); listAdminEquipments(); loadAdminData(); }
+        if(SUPER_ADMINS.includes(currentUser.email)) { 
+            document.getElementById("adminLink").classList.remove("hidden"); 
+            listAdminEquipments(); 
+            loadAdminData();
+            loadUserProfiles(); // Admin ise kullanıcı listesini yükle
+        }
         loadUserData();
     } catch (e) {}
 }
 async function handleLogin() { const email = document.getElementById("loginId").value.trim() + document.getElementById("loginDomain").value; try { await account.createEmailSession(email, document.getElementById("loginPass").value); location.reload(); } catch (e) { alert(e.message); } }
 
-// HANDLE REGISTER (Telefonlu)
+// HANDLE REGISTER (PROFIL KAYITLI)
 async function handleRegister() { 
-    const email = document.getElementById("regId").value.trim() + document.getElementById("regDomain").value;
+    const idVal = document.getElementById("regId").value.trim();
+    const email = idVal + document.getElementById("regDomain").value;
     const pass = document.getElementById("regPass").value;
     const name = document.getElementById("regFullName").value;
     const phone = document.getElementById("regPhone").value.trim();
@@ -383,8 +417,17 @@ async function handleRegister() {
     try { 
         await account.create(ID.unique(), email, pass, name); 
         await account.createEmailSession(email, pass);
-        // Telefon numarasını tercihlere kaydet
         await account.updatePrefs({ phone: phone });
+        
+        // PROFİL VERİTABANINA KAYIT
+        try {
+            await databases.createDocument(DB_ID, COLL_PROFILES, ID.unique(), {
+                studentId: idVal,
+                name: name,
+                phone: phone
+            });
+        } catch(err) { console.log("Profil DB hatası", err); }
+
         await account.createVerification("https://oktaykemah.github.io/lab-randevu/"); 
         alert("Onay maili gönderildi."); await account.deleteSession('current'); switchPage('loginPage'); 
     } catch (e) { alert(e.message); } 
@@ -394,7 +437,7 @@ async function loadAdminCalendar() { const lab = document.getElementById("adminV
 function switchPage(id) { document.querySelectorAll('.box > div').forEach(d => d.classList.add('hidden')); document.getElementById(id).classList.remove('hidden'); }
 async function logout() { await account.deleteSession('current'); location.reload(); }
 
-// SAYFA YÜKLENDİĞİNDE URL KONTROLÜ (DOĞRULAMA İÇİN)
+// URL KONTROLÜ (DOĞRULAMA)
 window.onload = async () => {
     const urlParams = new URLSearchParams(window.location.search);
     const userId = urlParams.get('userId');
@@ -407,7 +450,6 @@ window.onload = async () => {
             msg.innerText = "✅ Hesabınız başarıyla onaylandı! Giriş yapabilirsiniz.";
             msg.classList.remove("hidden");
             msg.classList.add("verify-success");
-            // URL'i temizle
             window.history.replaceState({}, document.title, window.location.pathname);
         } catch (error) {
             const msg = document.getElementById("verifyMessage");
