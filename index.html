@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>IKC Lab Booking - v1.9.0</title>
+  <title>IKC Lab Booking - v1.9.1</title>
   <script src="https://cdn.jsdelivr.net/npm/appwrite@13.0.1"></script>
   <style>
     :root { --primary: #0066cc; --admin: #2c3e50; --danger: #e74c3c; --success: #27ae60; --warning: #f39c12; --info: #17a2b8; --occupied-other: #fdeaea; --occupied-me: #e3f2fd; --selected: #218838; --blocked: #636e72; --pending: #ff9f43; --holiday: #fff3e0; }
@@ -39,6 +39,8 @@
 
     .main-btn { background: var(--primary); color: white; border: none; font-weight: bold; cursor: pointer; transition: 0.3s; margin-top: 20px; }
     .save-envanter-btn { background: var(--success); color: white; border: none; padding: 12px; border-radius: 8px; cursor: pointer; margin-top: 15px; font-weight: bold; width: 100%; }
+    .refresh-btn { background: #6c757d; color: white; border: none; padding: 10px; border-radius: 8px; cursor: pointer; font-weight: bold; margin-top: 8px; } /* YENİ BUTON STİLİ */
+    
     .delete-btn { background: var(--danger); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 11px; }
     .edit-btn { background: var(--warning); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 11px; margin-right: 3px; }
     .info-btn { background: var(--info); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 11px; margin-right: 3px; font-weight: bold; }
@@ -63,7 +65,7 @@
 </head>
 <body>
 
-<div class="version-tag">v1.9.0</div>
+<div class="version-tag">v1.9.1</div>
 
 <div id="app" class="box">
     <div id="loginPage">
@@ -152,7 +154,10 @@
         <div style="background: #f0f4f8; padding: 15px; border-radius: 10px; margin-top: 20px; border: 1px solid #d1d9e0;">
             <h3>Doluluk İzleme & Saat Yönetimi</h3>
             <p style="font-size:11px; color:#666;">* Admin: Boş/Açık hücreleri kapatabilir, kapalı hücreleri açabilirsiniz. Değişiklikler <b>turuncu</b> görünür.</p>
-            <div style="display:flex; gap:10px;"><select id="adminViewLab" onchange="loadAdminCalendar()" style="flex:2;"><option value="Malzeme Karakterizasyon Lab.">Malzeme Karakterizasyon Lab.</option><option value="Numune Hazırlama Lab.">Numune Hazırlama Lab.</option><option value="Üretim Lab.">Üretim Lab.</option></select><input id="adminViewDate" type="date" onchange="loadAdminCalendar()" style="flex:1;"></div>
+            <div style="display:flex; gap:10px; align-items: center;">
+                <select id="adminViewLab" onchange="loadAdminCalendar()" style="flex:2;"><option value="Malzeme Karakterizasyon Lab.">Malzeme Karakterizasyon Lab.</option><option value="Numune Hazırlama Lab.">Numune Hazırlama Lab.</option><option value="Üretim Lab.">Üretim Lab.</option></select>
+                <input id="adminViewDate" type="date" onchange="loadAdminCalendar()" style="flex:1;">
+                <button onclick="refreshAdminTable()" class="refresh-btn" style="flex:0.5;">🔄 Yenile</button> </div>
             <div class="calendar-container"><table class="cal-table"><thead id="adminCalHead"></thead><tbody id="adminCalBody"></tbody></table></div>
             <button id="saveAdminCalBtn" class="save-envanter-btn hidden" onclick="saveAdminCalendarChanges()">Tablo Değişikliklerini Kaydet</button>
         </div>
@@ -191,7 +196,7 @@ const restrictedHours = ["09:00-10:00", "16:00-17:00"];
 let currentUser = null, editingId = null, editingOwner = null, editingHistory = "";
 let appointmentsMap = {}, userMap = {};
 let selectedCells = []; 
-let tempAdminChanges = []; // Admin tablo değişiklikleri için geçici hafıza
+let tempAdminChanges = []; 
 
 // TIME UTILS
 function getHoliday(dateStr) {
@@ -221,7 +226,7 @@ async function loadUserProfiles() {
     } catch (e) {}
 }
 
-// ENVANTER (TİP EKLENDİ)
+// ENVANTER
 async function listAdminEquipments() {
     const lab = document.getElementById("adminLabSelect").value;
     const res = await databases.listDocuments(DB_ID, COLL_EQUIP, [Query.equal('lab', lab)]);
@@ -271,25 +276,19 @@ async function addEquipmentToDB() {
 }
 async function deleteDevice(id) { if(confirm("Emin misiniz?")) { await databases.deleteDocument(DB_ID, COLL_EQUIP, id); listAdminEquipments(); } }
 
-// UI SEÇİM MANTIĞI (UZUN SÜRELİ DESTEKLİ)
+// UI SEÇİM MANTIĞI
 window.toggleSlot = function(cell, equipName, timeSlot, isLongTerm) {
     if (cell.classList.contains('slot-occupied') || cell.classList.contains('slot-inactive') || cell.classList.contains('slot-me') || cell.classList.contains('slot-other') || cell.classList.contains('slot-blocked')) return;
     
-    // Uzun süreli cihazlar için blok mantığı
     let slotsToAdd = [];
     if(isLongTerm) {
         if(timeSlot === "10:00-11:00") slotsToAdd = ["10:00-11:00", "11:00-12:00", "12:00-13:00"];
         else if(timeSlot === "13:00-14:00") slotsToAdd = ["13:00-14:00", "14:00-15:00", "15:00-16:00"];
-        else return; // Diğer saatler uzun süreli için geçersiz
-    } else {
-        slotsToAdd = [timeSlot];
-    }
+        else return;
+    } else { slotsToAdd = [timeSlot]; }
 
-    // Toggle mantığı (Eğer ilk slot seçiliyse hepsini kaldır, değilse hepsini ekle)
     const firstIndex = selectedCells.findIndex(s => s.equip === equipName && s.time === slotsToAdd[0]);
-    
     if (firstIndex > -1) {
-        // Kaldır
         slotsToAdd.forEach(t => {
             const idx = selectedCells.findIndex(s => s.equip === equipName && s.time === t);
             if(idx > -1) selectedCells.splice(idx, 1);
@@ -297,38 +296,30 @@ window.toggleSlot = function(cell, equipName, timeSlot, isLongTerm) {
         cell.classList.remove('slot-selected');
         cell.innerText = isLongTerm ? (timeSlot === "10:00-11:00" ? "10:00-13:00" : "13:00-16:00") : "BOŞ";
     } else {
-        // Ekle
         slotsToAdd.forEach(t => selectedCells.push({ equip: equipName, time: t }));
         cell.classList.add('slot-selected');
         cell.innerText = "SEÇİLDİ";
     }
 }
 
-// ADMIN BLOKLAMA (BEKLEMELİ SİSTEM)
+// ADMIN BLOKLAMA (BEKLEMELİ)
 window.toggleAdminBlock = function(cell, lab, date, equip, time, docId, isRestrictedDefault) {
-    // Geçici değişikliği listeye ekle/çıkar
     const changeId = `${equip}-${time}`;
     const existingIndex = tempAdminChanges.findIndex(c => c.id === changeId);
+    let actionType; 
     
-    let actionType; // 'block' or 'unblock'
-    
-    if (docId) { // Zaten bloklu bir kayıt var
+    if (docId) { 
         actionType = 'unblock';
         if (cell.classList.contains('slot-pending')) {
-            // Vazgeçildi, eski haline dön
             cell.classList.remove('slot-pending');
             cell.innerText = isRestrictedDefault ? "AÇIK" : "KAPALI";
             if(existingIndex > -1) tempAdminChanges.splice(existingIndex, 1);
             return;
         }
         cell.classList.add('slot-pending');
-        cell.innerText = "KAPATILACAK"; // Unblock işlemini iptal etme veya block işlemini iptal etme durumu karmaşık, basit tutuyoruz.
-        // Hata önleme: docId varsa bu bir "LAB_ACIK" veya "LAB_KAPALI" kaydıdır.
-        // Onu silmek demek durumu tersine çevirmek demektir.
-        
+        cell.innerText = "KAPATILACAK"; 
     } else {
-        // Kayıt yok
-        actionType = isRestrictedDefault ? 'unblock' : 'block'; // Restricted ise açmaya çalışıyoruz, değilse kapamaya
+        actionType = isRestrictedDefault ? 'unblock' : 'block'; 
         if (cell.classList.contains('slot-pending')) {
             cell.classList.remove('slot-pending');
             cell.innerText = isRestrictedDefault ? "KAPALI" : "BOŞ";
@@ -339,28 +330,27 @@ window.toggleAdminBlock = function(cell, lab, date, equip, time, docId, isRestri
         cell.innerText = actionType === 'block' ? "KAPATILACAK" : "AÇILACAK";
     }
 
-    // Listeye Ekle
-    if(existingIndex === -1) {
-        tempAdminChanges.push({ id: changeId, lab, date, equip, time, docId, isRestrictedDefault });
-    }
+    if(existingIndex === -1) tempAdminChanges.push({ id: changeId, lab, date, equip, time, docId, isRestrictedDefault });
     
-    // Kaydet butonunu göster
     if(tempAdminChanges.length > 0) document.getElementById("saveAdminCalBtn").classList.remove("hidden");
     else document.getElementById("saveAdminCalBtn").classList.add("hidden");
+}
+
+// YENİLEME BUTONU FONKSİYONU
+window.refreshAdminTable = function() {
+    tempAdminChanges = []; // Bekleyen değişiklikleri sıfırla
+    loadAdminCalendar(); // Tabloyu veritabanından tekrar çek
+    document.getElementById("saveAdminCalBtn").classList.add("hidden"); // Kaydet butonunu gizle
 }
 
 async function saveAdminCalendarChanges() {
     if(tempAdminChanges.length === 0) return;
     const btn = document.getElementById("saveAdminCalBtn");
     btn.innerText = "Kaydediliyor..."; btn.disabled = true;
-    
     try {
         for(let change of tempAdminChanges) {
-            if (change.docId) {
-                // Var olan kaydı sil (Açma veya Kapama işlemini geri alma)
-                try { await databases.deleteDocument(DB_ID, COLL_APP, change.docId); } catch(e){}
-            } else {
-                // Yeni kayıt oluştur
+            if (change.docId) { try { await databases.deleteDocument(DB_ID, COLL_APP, change.docId); } catch(e){} } 
+            else {
                 const recordName = change.isRestrictedDefault ? "LAB_ACIK" : "LAB_KAPALI";
                 await databases.createDocument(DB_ID, COLL_APP, ID.unique(), {
                     name: recordName, lab: change.lab, date: change.date, equipment: change.equip, time: change.time,
@@ -368,9 +358,7 @@ async function saveAdminCalendarChanges() {
                 });
             }
         }
-        alert("Tablo güncellendi.");
-        tempAdminChanges = [];
-        loadAdminCalendar();
+        alert("Tablo güncellendi."); tempAdminChanges = []; loadAdminCalendar();
     } catch(e) { alert("Hata: " + e.message); }
     finally { btn.innerText = "Tablo Değişikliklerini Kaydet"; btn.disabled = false; }
 }
@@ -401,47 +389,37 @@ async function renderCalendar(lab, date, headId, bodyId, isAdminView, devices) {
     document.getElementById(bodyId).innerHTML = hours.map(h => {
         const row = devices.map(d => {
             const isLong = d.type === 'long';
-            
-            // UZUN SÜRELİ GÖSTERİM MANTIĞI
             if(isLong) {
-                // Gizlenecek satırlar (Merged cells arkası)
                 if (["11:00-12:00", "12:00-13:00", "14:00-15:00", "15:00-16:00"].includes(h)) return ""; 
-                // Geçersiz Saatler
                 if (["09:00-10:00", "16:00-17:00"].includes(h)) return `<td class="slot-inactive" style="background:#eee;">-</td>`;
             }
 
-            // Normal Render
             if(d.status && d.status !== 'Kullanılabilir') return isLong ? `<td rowspan="3" class="slot-inactive">${d.status}</td>` : `<td class="slot-inactive">${d.status === 'Bakımda' ? 'BAKIM' : 'K.DIŞI'}</td>`;
             
-            // Admin Blok Kontrolleri
             const isRestricted = restrictedHours.includes(h);
             const openDoc = apps.documents.find(a => a.time.includes(h) && a.equipment.includes(d.name) && a.name === "LAB_ACIK");
             const closeDoc = apps.documents.find(a => a.time.includes(h) && a.equipment.includes(d.name) && a.name === "LAB_KAPALI");
             const m = apps.documents.find(a => a.time.includes(h) && a.equipment.includes(d.name) && a.name !== "LAB_ACIK" && a.name !== "LAB_KAPALI");
 
-            // Cell Attributes
             let cellClass = "slot-free";
             let cellText = isLong ? (h === "10:00-11:00" ? "10:00-13:00" : "13:00-16:00") : "BOŞ";
             let onClick = `toggleSlot(this, '${d.name}', '${h}', ${isLong})`;
             let rowSpanAttr = isLong ? 'rowspan="3"' : '';
 
-            // 1. Dolu mu?
             if (m) {
-                if (editingId && m && m.$id === editingId) { // Düzenlenen
+                if (editingId && m && m.$id === editingId) { 
                     const isSelected = selectedCells.find(s => s.equip === d.name && s.time === h);
                     cellClass = isSelected ? "slot-selected" : "slot-free";
                     cellText = isSelected ? "SEÇİLDİ" : cellText;
                 } else {
                     cellClass = (isAdminView || SUPER_ADMINS.includes(currentUser.email)) ? "slot-occupied" : (m.name === currentUser.name ? "slot-me" : "slot-other");
                     cellText = (isAdminView || SUPER_ADMINS.includes(currentUser.email)) ? m.name : (m.name === currentUser.name ? "BEN" : "DOLU");
-                    onClick = ""; // Tıklanamaz
+                    onClick = ""; 
                 }
                 return `<td ${rowSpanAttr} class="${cellClass}" ${onClick ? `onclick="${onClick}"` : ''}>${cellText}</td>`;
             }
 
-            // 2. Admin Yönetimi (Kısıtlamalar)
             if (isAdminView) {
-                // Admin modunda tıklama logic'i farklı
                 if (isRestricted) {
                     if (openDoc) { cellClass = "slot-free slot-admin-clickable"; cellText = "AÇIK"; onClick = `toggleAdminBlock(this, '${lab}', '${date}', '${d.name}', '${h}', '${openDoc.$id}', true)`; }
                     else { cellClass = "slot-blocked slot-admin-clickable"; cellText = "KAPALI"; onClick = `toggleAdminBlock(this, '${lab}', '${date}', '${d.name}', '${h}', null, true)`; }
@@ -452,15 +430,9 @@ async function renderCalendar(lab, date, headId, bodyId, isAdminView, devices) {
                 return `<td ${rowSpanAttr} class="${cellClass}" onclick="${onClick}">${cellText}</td>`;
             }
 
-            // 3. Öğrenci Görünümü (Kısıtlamalar)
-            if (isRestricted && !openDoc) {
-                return `<td ${rowSpanAttr} class="slot-blocked">KAPALI</td>`;
-            }
-            if (closeDoc) {
-                return `<td ${rowSpanAttr} class="slot-blocked">KAPALI</td>`;
-            }
+            if (isRestricted && !openDoc) return `<td ${rowSpanAttr} class="slot-blocked">KAPALI</td>`;
+            if (closeDoc) return `<td ${rowSpanAttr} class="slot-blocked">KAPALI</td>`;
 
-            // 4. Normal Boş Seçim
             const isSelected = selectedCells.find(s => s.equip === d.name && s.time === h);
             if(isSelected) { cellClass = "slot-selected"; cellText = "SEÇİLDİ"; }
             
@@ -471,7 +443,6 @@ async function renderCalendar(lab, date, headId, bodyId, isAdminView, devices) {
     }).join('');
 }
 
-// KAYIT İŞLEMİ (Cihaz Bazlı Kayıt)
 async function saveBooking() {
     const lab = document.getElementById("labSelect").value, date = document.getElementById("resDate").value;
     if (selectedCells.length === 0) return alert("Lütfen tablodan seçim yapınız!");
@@ -569,7 +540,8 @@ async function loadUserData() {
         return `<tr><td><b>${doc.lab}</b><br>${doc.equipment}</td><td>${formatDate(doc.date)}<br>${doc.time}</td>
             <td><button class="info-btn" onclick="showDetails('${doc.$id}')">i</button>
             <button class="edit-btn" ${past ? 'disabled' : ''} onclick="editRes('${doc.$id}', '${doc.lab}', '${doc.date}', '${doc.equipment}', '${doc.time}', '${doc.name}', \`${doc.history || ''}\`)">${past ? '-' : 'Düz.'}</button>
-            <button class="delete-btn" ${past ? 'disabled' : ''} onclick="deleteRes('${doc.$id}', false)">${past ? '-' : 'İptal'}</button></td></tr>`;
+            <button class="delete-btn" ${past ? 'disabled' : ''} onclick="deleteRes('${doc.$id}', false)">${past ? '-' : 'İptal'}</button>
+            </td></tr>`;
     }).join('');
 }
 
