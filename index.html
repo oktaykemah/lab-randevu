@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>İKÇÜ Lab Randevu - v2.0.5</title>
+  <title>İKÇÜ Lab Randevu - v2.0.6</title>
   <script src="https://cdn.jsdelivr.net/npm/appwrite@13.0.1"></script>
   <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -98,7 +98,7 @@
 </head>
 <body>
 
-<div class="version-tag">v2.0.5</div>
+<div class="version-tag">v2.0.6</div>
 
 <div id="app" class="box">
     <div id="loginPage" class="login-wrapper">
@@ -714,9 +714,14 @@ window.openAdminTab = function(tabName) {
 
 async function loadAdminData() {
     try {
-        // HATA AYIKLAMA: Konsola yazdır
-        console.log("Admin verisi yükleniyor...");
-        const res = await databases.listDocuments(DB_ID, COLL_APP, [Query.orderDesc('$createdAt')]);
+        console.log("Admin verisi yükleniyor... (Sorting by JS)");
+        // DÜZELTME: Veritabanı sorgusundan orderDesc('$createdAt') kaldırıldı.
+        // Çünkü compound index (isim+tarih) eksik. Sıralama JS ile yapılacak.
+        const res = await databases.listDocuments(DB_ID, COLL_APP, []); // Sorgu boş, tümünü getirir.
+        
+        // JS Tarafında Tarihe Göre Yeniden Eskiye Sırala
+        res.documents.sort((a, b) => new Date(b.$createdAt) - new Date(a.$createdAt));
+        
         console.log("Admin verisi geldi:", res.documents);
         
         document.getElementById("adminBody").innerHTML = res.documents.map(doc => {
@@ -726,15 +731,20 @@ async function loadAdminData() {
         }).join('');
     } catch(e) {
         console.error("Admin veri hatası:", e);
-        document.getElementById("adminBody").innerHTML = `<tr><td colspan="7" style="color:red; text-align:center;">Veri yüklenemedi: ${e.message} (İndeks eksik olabilir)</td></tr>`;
+        document.getElementById("adminBody").innerHTML = `<tr><td colspan="7" style="color:red; text-align:center;">Veri yüklenemedi: ${e.message}</td></tr>`;
     }
 }
 
 async function loadUserData() {
     try {
-        // HATA AYIKLAMA: Konsola yazdır
-        console.log("Kullanıcı verisi yükleniyor...", currentUser.name);
-        const res = await databases.listDocuments(DB_ID, COLL_APP, [Query.equal('name', currentUser.name), Query.orderDesc('$createdAt')]);
+        console.log("Kullanıcı verisi yükleniyor... (Sorting by JS)", currentUser.name);
+        // DÜZELTME: Veritabanı sorgusundan orderDesc('$createdAt') kaldırıldı.
+        // Sadece 'name' filtresi kullanılıyor çünkü 'name_check' indeksi mevcut.
+        const res = await databases.listDocuments(DB_ID, COLL_APP, [Query.equal('name', currentUser.name)]);
+        
+        // JS Tarafında Tarihe Göre Yeniden Eskiye Sırala
+        res.documents.sort((a, b) => new Date(b.$createdAt) - new Date(a.$createdAt));
+        
         console.log("Kullanıcı verisi geldi:", res.documents);
 
         document.getElementById("userBody").innerHTML = res.documents.map(doc => {
@@ -744,7 +754,7 @@ async function loadUserData() {
         }).join('');
     } catch(e) {
         console.error("Kullanıcı veri hatası:", e);
-        document.getElementById("userBody").innerHTML = `<tr><td colspan="3" style="color:red; text-align:center;">Veri yüklenemedi: ${e.message} (İndeks eksik olabilir)</td></tr>`;
+        document.getElementById("userBody").innerHTML = `<tr><td colspan="3" style="color:red; text-align:center;">Veri yüklenemedi: ${e.message}</td></tr>`;
     }
 }
 
