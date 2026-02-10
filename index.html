@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>IKC Lab Booking - v1.9.1</title>
+  <title>IKC Lab Booking - v1.9.2</title>
   <script src="https://cdn.jsdelivr.net/npm/appwrite@13.0.1"></script>
   <style>
     :root { --primary: #0066cc; --admin: #2c3e50; --danger: #e74c3c; --success: #27ae60; --warning: #f39c12; --info: #17a2b8; --occupied-other: #fdeaea; --occupied-me: #e3f2fd; --selected: #218838; --blocked: #636e72; --pending: #ff9f43; --holiday: #fff3e0; }
@@ -39,7 +39,7 @@
 
     .main-btn { background: var(--primary); color: white; border: none; font-weight: bold; cursor: pointer; transition: 0.3s; margin-top: 20px; }
     .save-envanter-btn { background: var(--success); color: white; border: none; padding: 12px; border-radius: 8px; cursor: pointer; margin-top: 15px; font-weight: bold; width: 100%; }
-    .refresh-btn { background: #6c757d; color: white; border: none; padding: 10px; border-radius: 8px; cursor: pointer; font-weight: bold; margin-top: 8px; } /* YENİ BUTON STİLİ */
+    .refresh-btn { background: #6c757d; color: white; border: none; padding: 10px; border-radius: 8px; cursor: pointer; font-weight: bold; margin-top: 8px; }
     
     .delete-btn { background: var(--danger); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 11px; }
     .edit-btn { background: var(--warning); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 11px; margin-right: 3px; }
@@ -65,7 +65,7 @@
 </head>
 <body>
 
-<div class="version-tag">v1.9.1</div>
+<div class="version-tag">v1.9.2</div>
 
 <div id="app" class="box">
     <div id="loginPage">
@@ -157,7 +157,8 @@
             <div style="display:flex; gap:10px; align-items: center;">
                 <select id="adminViewLab" onchange="loadAdminCalendar()" style="flex:2;"><option value="Malzeme Karakterizasyon Lab.">Malzeme Karakterizasyon Lab.</option><option value="Numune Hazırlama Lab.">Numune Hazırlama Lab.</option><option value="Üretim Lab.">Üretim Lab.</option></select>
                 <input id="adminViewDate" type="date" onchange="loadAdminCalendar()" style="flex:1;">
-                <button onclick="refreshAdminTable()" class="refresh-btn" style="flex:0.5;">🔄 Yenile</button> </div>
+                <button onclick="refreshAdminTable()" class="refresh-btn" style="flex:0.5;">🔄 Yenile</button>
+            </div>
             <div class="calendar-container"><table class="cal-table"><thead id="adminCalHead"></thead><tbody id="adminCalBody"></tbody></table></div>
             <button id="saveAdminCalBtn" class="save-envanter-btn hidden" onclick="saveAdminCalendarChanges()">Tablo Değişikliklerini Kaydet</button>
         </div>
@@ -302,7 +303,7 @@ window.toggleSlot = function(cell, equipName, timeSlot, isLongTerm) {
     }
 }
 
-// ADMIN BLOKLAMA (BEKLEMELİ)
+// ADMIN BLOKLAMA
 window.toggleAdminBlock = function(cell, lab, date, equip, time, docId, isRestrictedDefault) {
     const changeId = `${equip}-${time}`;
     const existingIndex = tempAdminChanges.findIndex(c => c.id === changeId);
@@ -336,11 +337,9 @@ window.toggleAdminBlock = function(cell, lab, date, equip, time, docId, isRestri
     else document.getElementById("saveAdminCalBtn").classList.add("hidden");
 }
 
-// YENİLEME BUTONU FONKSİYONU
 window.refreshAdminTable = function() {
-    tempAdminChanges = []; // Bekleyen değişiklikleri sıfırla
-    loadAdminCalendar(); // Tabloyu veritabanından tekrar çek
-    document.getElementById("saveAdminCalBtn").classList.add("hidden"); // Kaydet butonunu gizle
+    tempAdminChanges = []; loadAdminCalendar();
+    document.getElementById("saveAdminCalBtn").classList.add("hidden");
 }
 
 async function saveAdminCalendarChanges() {
@@ -443,6 +442,7 @@ async function renderCalendar(lab, date, headId, bodyId, isAdminView, devices) {
     }).join('');
 }
 
+// KAYIT İŞLEMİ (DÜZELTİLDİ: Silme işlemi sonrası seçimi korur)
 async function saveBooking() {
     const lab = document.getElementById("labSelect").value, date = document.getElementById("resDate").value;
     if (selectedCells.length === 0) return alert("Lütfen tablodan seçim yapınız!");
@@ -466,8 +466,9 @@ async function saveBooking() {
         finalOwner = editingOwner; 
         const editor = currentUser.name;
         logEntry = editingHistory + `Düzenlendi: ${editor} tarafından - ${new Date().toLocaleString()}\n`;
-        editingId = null; editingOwner = null; editingHistory = ""; selectedCells = [];
+        editingId = null; editingOwner = null; editingHistory = ""; 
         document.getElementById("editModeNotice").classList.add("hidden");
+        // DİKKAT: selectedCells BURADA SIFIRLANMIYOR! (Hata buradaydı)
     }
 
     const uniqueEquips = [...new Set(selectedCells.map(s => s.equip))];
@@ -478,7 +479,9 @@ async function saveBooking() {
                 name: finalOwner, lab, date, equipment: eq, time: timesForThisEquip.join(', '), history: logEntry 
             });
         }
-        alert("İşlem Başarılı!"); selectedCells = []; refreshView(); loadUserData(); if(SUPER_ADMINS.includes(currentUser.email)) loadAdminData();
+        alert("İşlem Başarılı!"); 
+        selectedCells = []; // İşlem bitince sıfırla
+        refreshView(); loadUserData(); if(SUPER_ADMINS.includes(currentUser.email)) loadAdminData();
     } catch (e) { alert("Hata: " + e.message); }
 }
 
@@ -540,8 +543,7 @@ async function loadUserData() {
         return `<tr><td><b>${doc.lab}</b><br>${doc.equipment}</td><td>${formatDate(doc.date)}<br>${doc.time}</td>
             <td><button class="info-btn" onclick="showDetails('${doc.$id}')">i</button>
             <button class="edit-btn" ${past ? 'disabled' : ''} onclick="editRes('${doc.$id}', '${doc.lab}', '${doc.date}', '${doc.equipment}', '${doc.time}', '${doc.name}', \`${doc.history || ''}\`)">${past ? '-' : 'Düz.'}</button>
-            <button class="delete-btn" ${past ? 'disabled' : ''} onclick="deleteRes('${doc.$id}', false)">${past ? '-' : 'İptal'}</button>
-            </td></tr>`;
+            <button class="delete-btn" ${past ? 'disabled' : ''} onclick="deleteRes('${doc.$id}', false)">${past ? '-' : 'İptal'}</button></td></tr>`;
     }).join('');
 }
 
