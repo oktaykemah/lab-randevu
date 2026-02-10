@@ -3,8 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>IKC Lab Booking - v1.9.2</title>
+  <title>IKC Lab Booking - v1.9.5</title>
   <script src="https://cdn.jsdelivr.net/npm/appwrite@13.0.1"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
   <style>
     :root { --primary: #0066cc; --admin: #2c3e50; --danger: #e74c3c; --success: #27ae60; --warning: #f39c12; --info: #17a2b8; --occupied-other: #fdeaea; --occupied-me: #e3f2fd; --selected: #218838; --blocked: #636e72; --pending: #ff9f43; --holiday: #fff3e0; }
     body { font-family: 'Segoe UI', sans-serif; background: #f4f7f9; margin: 0; padding: 20px; display: flex; justify-content: center; min-height: 100vh; position: relative; }
@@ -65,7 +66,7 @@
 </head>
 <body>
 
-<div class="version-tag">v1.9.2</div>
+<div class="version-tag">v1.9.5</div>
 
 <div id="app" class="box">
     <div id="loginPage">
@@ -188,9 +189,29 @@ const client = new Client().setEndpoint('https://cloud.appwrite.io/v1').setProje
 const account = new Account(client);
 const databases = new Databases(client);
 
+// -----------------------------------------------------
+// EMAILJS YAPILANDIRMASI
+// -----------------------------------------------------
+const EMAILJS_SERVICE_ID = "service_bnjn6pj"; 
+const EMAILJS_PUBLIC_KEY = "GoSBRo0EMVNlIyZSK";
+const EMAILJS_TEMPLATE_ID = "template_mifux1n"; 
+
+// EmailJS Başlatma
+(function(){
+    emailjs.init(EMAILJS_PUBLIC_KEY);
+})();
+
 const DB_ID = '6981c42a00202c6cdf0e', COLL_APP = 'appointments', COLL_EQUIP = 'equipments', COLL_PROFILES = 'profiles';
 const SUPER_ADMINS = ["oktay.kemah@ikc.edu.tr", "saadet.guler@ikc.edu.tr", "metehan.atagur@ikc.edu.tr", "berk.ozler@ikc.edu.tr"];
 const LAB_BOSSES = { "Numune Hazırlama Lab.": "Arş. Gör. Oktay Kemah", "Malzeme Karakterizasyon Lab.": "Öğr. Gör. Dr. Saadet Güler", "Üretim Lab.": "Arş.Gör.Dr. Metehan Atagür - Arş.Gör. Berk Özler" };
+
+// LAB SORUMLULARI MAİL LİSTESİ
+const LAB_EMAILS = {
+    "Numune Hazırlama Lab.": ["oktay.kemah@ikc.edu.tr"],
+    "Malzeme Karakterizasyon Lab.": ["saadet.guler@ikc.edu.tr"],
+    "Üretim Lab.": ["metehan.atagur@ikc.edu.tr", "berk.ozler@ikc.edu.tr"]
+};
+
 const hours = ["09:00-10:00", "10:00-11:00", "11:00-12:00", "12:00-13:00", "13:00-14:00", "14:00-15:00", "15:00-16:00", "16:00-17:00"];
 const restrictedHours = ["09:00-10:00", "16:00-17:00"]; 
 
@@ -198,6 +219,20 @@ let currentUser = null, editingId = null, editingOwner = null, editingHistory = 
 let appointmentsMap = {}, userMap = {};
 let selectedCells = []; 
 let tempAdminChanges = []; 
+
+// E-POSTA GÖNDERİM FONKSİYONU
+function sendEmail(toEmails, subject, messageBody) {
+    const targets = Array.isArray(toEmails) ? toEmails : [toEmails];
+    targets.forEach(email => {
+        if(!email || email === "Bilinmiyor") return;
+        emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
+            to_email: email,
+            subject: subject,
+            message: messageBody
+        })
+        .then(function() { console.log('Mail gönderildi:', email); }, function(error) { console.error('Mail hatası:', error); });
+    });
+}
 
 // TIME UTILS
 function getHoliday(dateStr) {
@@ -223,7 +258,7 @@ async function loadUserProfiles() {
     try {
         const res = await databases.listDocuments(DB_ID, COLL_PROFILES, [Query.orderAsc('studentId')]);
         document.getElementById("userProfilesBody").innerHTML = res.documents.map(u => `<tr><td style="font-weight:bold;">${u.studentId}</td><td>${u.name}</td><td>${u.phone}</td></tr>`).join('');
-        res.documents.forEach(u => { userMap[u.name] = { id: u.studentId, phone: u.phone }; });
+        res.documents.forEach(u => { userMap[u.name] = { id: u.studentId, phone: u.phone, email: u.email || "Bilinmiyor" }; });
     } catch (e) {}
 }
 
@@ -442,7 +477,7 @@ async function renderCalendar(lab, date, headId, bodyId, isAdminView, devices) {
     }).join('');
 }
 
-// KAYIT İŞLEMİ (DÜZELTİLDİ: Silme işlemi sonrası seçimi korur)
+// KAYIT İŞLEMİ (BİLDİRİM EKLENDİ)
 async function saveBooking() {
     const lab = document.getElementById("labSelect").value, date = document.getElementById("resDate").value;
     if (selectedCells.length === 0) return alert("Lütfen tablodan seçim yapınız!");
@@ -460,15 +495,15 @@ async function saveBooking() {
     
     let finalOwner = currentUser.name;
     let logEntry = `Oluşturuldu: ${currentUser.name} - ${new Date().toLocaleString()}\n`;
+    let isEditAction = false;
     
     if(editingId) {
+        isEditAction = true;
         await databases.deleteDocument(DB_ID, COLL_APP, editingId);
         finalOwner = editingOwner; 
         const editor = currentUser.name;
         logEntry = editingHistory + `Düzenlendi: ${editor} tarafından - ${new Date().toLocaleString()}\n`;
-        editingId = null; editingOwner = null; editingHistory = ""; 
         document.getElementById("editModeNotice").classList.add("hidden");
-        // DİKKAT: selectedCells BURADA SIFIRLANMIYOR! (Hata buradaydı)
     }
 
     const uniqueEquips = [...new Set(selectedCells.map(s => s.equip))];
@@ -479,8 +514,27 @@ async function saveBooking() {
                 name: finalOwner, lab, date, equipment: eq, time: timesForThisEquip.join(', '), history: logEntry 
             });
         }
+        
+        // --- BİLDİRİM MANTIĞI ---
+        const isAdmin = SUPER_ADMINS.includes(currentUser.email);
+        
+        // 1. Admin, başkasının randevusunu düzenlerse -> Kullanıcıya Bildir
+        if (isAdmin && isEditAction && finalOwner !== currentUser.name) {
+            const userEmail = userMap[finalOwner]?.email || "Bilinmiyor";
+            if(userEmail !== "Bilinmiyor") {
+                sendEmail(userEmail, "Randevunuz Düzenlendi", `${date} tarihindeki randevunuz yönetici tarafından güncellendi.`);
+            }
+        }
+        
+        // 2. Kullanıcı işlem yaparsa -> Lab Sorumlusuna Bildir
+        if (!isAdmin) {
+            const supervisorEmails = LAB_EMAILS[lab];
+            const actionType = isEditAction ? "düzenlendi" : "oluşturuldu";
+            sendEmail(supervisorEmails, `Yeni Randevu: ${actionType}`, `${currentUser.name}, ${date} tarihi için işlem yaptı.`);
+        }
+
         alert("İşlem Başarılı!"); 
-        selectedCells = []; // İşlem bitince sıfırla
+        editingId = null; editingOwner = null; editingHistory = ""; selectedCells = []; 
         refreshView(); loadUserData(); if(SUPER_ADMINS.includes(currentUser.email)) loadAdminData();
     } catch (e) { alert("Hata: " + e.message); }
 }
@@ -495,6 +549,27 @@ async function editRes(id, lab, date, equipStr, timeStr, owner, history) {
     document.getElementById("labSelect").value = lab; document.getElementById("resDate").value = date.split('T')[0];
     await refreshView(); document.getElementById("bookingPage").classList.remove("hidden");
     document.getElementById("bookingPage").scrollIntoView({ behavior: 'smooth' });
+}
+
+// SİLME İŞLEMİ (BİLDİRİMLİ)
+async function deleteRes(id, isAdmin) { 
+    if(!confirm("Silinsin mi?")) return; 
+    try {
+        const doc = await databases.getDocument(DB_ID, COLL_APP, id);
+        await databases.deleteDocument(DB_ID, COLL_APP, id);
+        
+        if (isAdmin && doc.name !== currentUser.name) {
+            const userEmail = userMap[doc.name]?.email || "Bilinmiyor";
+            if(userEmail !== "Bilinmiyor") {
+                sendEmail(userEmail, "Randevu İptali", `${doc.date} tarihindeki randevunuz yönetici tarafından iptal edildi.`);
+            }
+        } else if (!isAdmin) {
+            const supervisorEmails = LAB_EMAILS[doc.lab];
+            sendEmail(supervisorEmails, "Randevu İptali", `${doc.name}, ${doc.date} tarihindeki randevusunu iptal etti.`);
+        }
+
+        isAdmin ? loadAdminData() : loadUserData(); refreshView();
+    } catch(e) { alert("Hata: " + e.message); }
 }
 
 window.showDetails = function(id) {
@@ -543,11 +618,11 @@ async function loadUserData() {
         return `<tr><td><b>${doc.lab}</b><br>${doc.equipment}</td><td>${formatDate(doc.date)}<br>${doc.time}</td>
             <td><button class="info-btn" onclick="showDetails('${doc.$id}')">i</button>
             <button class="edit-btn" ${past ? 'disabled' : ''} onclick="editRes('${doc.$id}', '${doc.lab}', '${doc.date}', '${doc.equipment}', '${doc.time}', '${doc.name}', \`${doc.history || ''}\`)">${past ? '-' : 'Düz.'}</button>
-            <button class="delete-btn" ${past ? 'disabled' : ''} onclick="deleteRes('${doc.$id}', false)">${past ? '-' : 'İptal'}</button></td></tr>`;
+            <button class="delete-btn" ${past ? 'disabled' : ''} onclick="deleteRes('${doc.$id}', false)">${past ? '-' : 'İptal'}</button>
+            </td></tr>`;
     }).join('');
 }
 
-async function deleteRes(id, isAdmin) { if(!confirm("Silinsin mi?")) return; await databases.deleteDocument(DB_ID, COLL_APP, id); isAdmin ? loadAdminData() : loadUserData(); refreshView(); }
 async function checkSession() {
     try {
         currentUser = await account.get();
@@ -565,7 +640,7 @@ async function handleRegister() {
     const pass = document.getElementById("regPass").value; const name = document.getElementById("regFullName").value; const phone = document.getElementById("regPhone").value.trim();
     if(!phone) return alert("Telefon zorunlu!");
     try { await account.create(ID.unique(), email, pass, name); await account.createEmailSession(email, pass); await account.updatePrefs({ phone: phone });
-        try { await databases.createDocument(DB_ID, COLL_PROFILES, ID.unique(), { studentId: idVal, name: name, phone: phone }); } catch(err) {}
+        try { await databases.createDocument(DB_ID, COLL_PROFILES, ID.unique(), { studentId: idVal, name: name, phone: phone, email: email }); } catch(err) {}
         await account.createVerification("https://oktaykemah.github.io/lab-randevu/"); alert("Mail gönderildi."); await account.deleteSession('current'); switchPage('loginPage'); 
     } catch (e) { alert(e.message); } 
 }
