@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>İKÇÜ Lab Randevu - v2.0.2</title>
+  <title>İKÇÜ Lab Randevu - v2.0.3</title>
   <script src="https://cdn.jsdelivr.net/npm/appwrite@13.0.1"></script>
   <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -34,6 +34,13 @@
     select, input, button { width: 100%; padding: 12px; margin-top: 8px; border-radius: 8px; border: 1px solid #ddd; box-sizing: border-box; font-size: 14px; transition: 0.3s; }
     input:focus, select:focus { border-color: var(--primary); outline: none; box-shadow: 0 0 0 3px rgba(0,102,204,0.1); }
     
+    /* SEKME (TABS) YAPISI */
+    .tab-nav { display: flex; border-bottom: 2px solid #eee; margin-bottom: 20px; }
+    .tab-btn { flex: 1; padding: 15px; background: none; border: none; font-weight: bold; color: #666; cursor: pointer; border-bottom: 3px solid transparent; transition: 0.3s; font-size: 14px; margin-top: 0; border-radius: 8px 8px 0 0; }
+    .tab-btn:hover { background: #f9f9f9; color: var(--primary); }
+    .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); background: #f0f7ff; }
+    .tab-btn i { margin-right: 8px; }
+
     /* TAKVİM VE HÜCRELER */
     .calendar-container { overflow-x: auto; margin-top: 20px; border: 1px solid #ddd; border-radius: 8px; }
     .cal-table { width: 100%; border-collapse: collapse; background: white; min-width: 600px; }
@@ -91,7 +98,7 @@
 </head>
 <body>
 
-<div class="version-tag">v2.0.2</div>
+<div class="version-tag">v2.0.3</div>
 
 <div id="app" class="box">
     <div id="loginPage" class="login-wrapper">
@@ -170,38 +177,49 @@
             <h2 id="userGreet" style="border:none; margin:0;">Hoş Geldiniz</h2>
             <div id="adminLink" class="hidden"><button onclick="switchPage('adminPage')" style="background: var(--admin); color: white; padding: 10px; border-radius: 8px; border: none; cursor: pointer; font-weight: bold;"><i class="fa-solid fa-shield-halved"></i> Admin Paneli</button></div>
         </div>
+
+        <div class="tab-nav">
+            <button id="btn-makeRes" class="tab-btn active" onclick="openUserTab('makeRes')"><i class="fa-regular fa-calendar-plus"></i> Randevu Al</button>
+            <button id="btn-myRes" class="tab-btn" onclick="openUserTab('myRes')"><i class="fa-solid fa-list-check"></i> Randevularım</button>
+        </div>
         
-        <div id="quotaDisplay" class="quota-card hidden">
-            <span>Yükleniyor...</span>
-        </div>
+        <div id="tab-makeRes" class="tab-content">
+            <div id="quotaDisplay" class="quota-card hidden">
+                <span>Yükleniyor...</span>
+            </div>
 
-        <div id="editModeNotice" class="hidden" style="background: #fff3cd; color: #856404; padding: 10px; border-radius: 8px; margin-bottom: 15px; font-weight: bold; border: 1px solid #ffeeba;">⚠️ Randevu Düzenleme Modundasınız.</div>
-        <div id="labInfoCard" class="info-card hidden"></div>
+            <div id="editModeNotice" class="hidden" style="background: #fff3cd; color: #856404; padding: 10px; border-radius: 8px; margin-bottom: 15px; font-weight: bold; border: 1px solid #ffeeba;">⚠️ Randevu Düzenleme Modundasınız.</div>
+            <div id="labInfoCard" class="info-card hidden"></div>
 
-        <div style="background: #eef6ff; padding: 15px; border-radius: 10px; margin-bottom: 20px;">
-            <label><i class="fa-solid fa-filter"></i> 1. Laboratuvar ve Tarih Seçimi</label>
-            <div style="display:flex; gap:10px;">
-                <select id="labSelect" onchange="refreshView()" style="flex:2;">
-                    <option value="">Seçiniz...</option>
-                    <option value="Malzeme Karakterizasyon Lab.">Malzeme Karakterizasyon Lab.</option>
-                    <option value="Numune Hazırlama Lab.">Numune Hazırlama Lab.</option>
-                    <option value="Üretim Lab.">Üretim Lab.</option>
-                </select>
-                <input id="resDate" type="date" onchange="refreshView()" style="flex:1;">
+            <div style="background: #eef6ff; padding: 15px; border-radius: 10px; margin-bottom: 20px;">
+                <label><i class="fa-solid fa-filter"></i> 1. Laboratuvar ve Tarih Seçimi</label>
+                <div style="display:flex; gap:10px;">
+                    <select id="labSelect" onchange="refreshView()" style="flex:2;">
+                        <option value="">Seçiniz...</option>
+                        <option value="Malzeme Karakterizasyon Lab.">Malzeme Karakterizasyon Lab.</option>
+                        <option value="Numune Hazırlama Lab.">Numune Hazırlama Lab.</option>
+                        <option value="Üretim Lab.">Üretim Lab.</option>
+                    </select>
+                    <input id="resDate" type="date" onchange="refreshView()" style="flex:1;">
+                </div>
+            </div>
+
+            <div id="statusSection" class="hidden">
+                <div id="holidayNotice" class="holiday-msg hidden"></div>
+                <div id="calendarContent">
+                    <h3><i class="fa-regular fa-calendar-days"></i> Randevu Tablosu</h3>
+                    <p style="font-size:12px; color:#666;">* Randevu almak için tablodaki <b>BOŞ</b> kutucuklara tıklayarak (yeşil) seçiniz.</p>
+                    <div class="calendar-container"><table class="cal-table"><thead id="calHead"></thead><tbody id="calBody"></tbody></table></div>
+                    <button class="main-btn" onclick="saveBooking()"><i class="fa-solid fa-check"></i> Seçili Randevuyu Kaydet</button>
+                </div>
             </div>
         </div>
 
-        <div id="statusSection" class="hidden">
-            <div id="holidayNotice" class="holiday-msg hidden"></div>
-            <div id="calendarContent">
-                <h3><i class="fa-regular fa-calendar-days"></i> Randevu Tablosu</h3>
-                <p style="font-size:12px; color:#666;">* Randevu almak için tablodaki <b>BOŞ</b> kutucuklara tıklayarak (yeşil) seçiniz.</p>
-                <div class="calendar-container"><table class="cal-table"><thead id="calHead"></thead><tbody id="calBody"></tbody></table></div>
-                <button class="main-btn" onclick="saveBooking()"><i class="fa-solid fa-check"></i> Seçili Randevuyu Kaydet</button>
-            </div>
+        <div id="tab-myRes" class="tab-content hidden">
+            <h3><i class="fa-solid fa-list-check"></i> Mevcut Randevularınız</h3>
+            <table class="res-table"><thead><tr><th>Lab / Cihaz</th><th>Zaman</th><th>İşlem</th></tr></thead><tbody id="userBody"></tbody></table>
         </div>
-        <h3><i class="fa-solid fa-list-check"></i> Randevularım</h3>
-        <table class="res-table"><thead><tr><th>Lab / Cihaz</th><th>Zaman</th><th>İşlem</th></tr></thead><tbody id="userBody"></tbody></table>
+
         <button onclick="logout()" style="background:#666; color:white; margin-top:20px; width:auto; padding:10px 20px;"><i class="fa-solid fa-right-from-bracket"></i> Çıkış Yap</button>
     </div>
 
@@ -616,6 +634,10 @@ async function editRes(id, lab, date, equipStr, timeStr, owner, history) {
     eqArr.forEach(eq => { tmArr.forEach(tm => { selectedCells.push({ equip: eq, time: tm }); }); });
     document.getElementById("editModeNotice").classList.remove("hidden");
     document.getElementById("labSelect").value = lab; document.getElementById("resDate").value = date.split('T')[0];
+    
+    // TAB DEĞİŞİKLİĞİ EKLENDİ
+    openUserTab('makeRes');
+    
     await refreshView(); document.getElementById("bookingPage").classList.remove("hidden"); document.getElementById("bookingPage").scrollIntoView({ behavior: 'smooth' });
 }
 
@@ -646,6 +668,17 @@ window.showDetails = function(id) {
 window.closeModal = function() { document.getElementById("detailModal").classList.remove("active"); }
 
 function formatDate(dateStr) { if(!dateStr) return ""; const d = new Date(dateStr); return `${d.getDate().toString().padStart(2, '0')}.${(d.getMonth() + 1).toString().padStart(2, '0')}.${d.getFullYear()}`; }
+
+// SEKME GEÇİŞ FONKSİYONU
+window.openUserTab = function(tabName) {
+    document.getElementById('tab-makeRes').classList.add('hidden');
+    document.getElementById('tab-myRes').classList.add('hidden');
+    document.getElementById('btn-makeRes').classList.remove('active');
+    document.getElementById('btn-myRes').classList.remove('active');
+
+    document.getElementById('tab-' + tabName).classList.remove('hidden');
+    document.getElementById('btn-' + tabName).classList.add('active');
+}
 
 async function loadAdminData() {
     const res = await databases.listDocuments(DB_ID, COLL_APP, [Query.orderDesc('$createdAt')]);
