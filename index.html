@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>IKC Lab Booking - v1.6.6</title>
+  <title>IKC Lab Booking - v1.6.7</title>
   <script src="https://cdn.jsdelivr.net/npm/appwrite@13.0.1"></script>
   <style>
     :root { --primary: #0066cc; --admin: #2c3e50; --danger: #e74c3c; --success: #27ae60; --warning: #f39c12; --info: #17a2b8; --occupied-other: #fdeaea; --occupied-me: #e3f2fd; --holiday: #fff3e0; }
@@ -11,7 +11,7 @@
     
     .version-tag { position: fixed; bottom: 10px; left: 10px; font-size: 11px; color: #888; z-index: 1000; font-weight: bold; background: rgba(255,255,255,0.7); padding: 2px 5px; border-radius: 4px; }
     
-    .box { background: #fff; padding: 25px; width: 100%; max-width: 1100px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); position: relative; }
+    .box { background: #fff; padding: 25px; width: 100%; max-width: 1100px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); position: relative; z-index: 1; }
     
     .hidden { display: none !important; }
 
@@ -44,17 +44,17 @@
     .info-card { background: #e3f2fd; padding: 12px; border-radius: 8px; color: #0d47a1; font-size: 13px; font-weight: bold; margin-bottom: 15px; border-left: 5px solid var(--primary); line-height: 1.4; }
     .holiday-msg { background: var(--holiday); color: #e65100; padding: 15px; border-radius: 8px; text-align: center; font-weight: bold; margin-bottom: 15px; border: 1px solid #ffe0b2; }
 
-    /* MODAL */
-    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 2000; }
-    .modal.active { display: flex; }
-    .modal-content { background: white; padding: 25px; border-radius: 10px; width: 90%; max-width: 500px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); position: relative; }
-    .close-modal { position: absolute; top: 10px; right: 15px; font-size: 20px; cursor: pointer; font-weight: bold; color: #666; }
-    .log-box { background: #f8f9fa; padding: 10px; border: 1px solid #ddd; border-radius: 5px; max-height: 200px; overflow-y: auto; font-family: monospace; font-size: 12px; margin-top: 10px; white-space: pre-wrap; }
+    /* MODAL (Kesin Gizlilik ve Konumlandırma) */
+    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 9999; }
+    .modal.active { display: flex !important; }
+    .modal-content { background: white; padding: 25px; border-radius: 10px; width: 90%; max-width: 500px; box-shadow: 0 10px 25px rgba(0,0,0,0.3); position: relative; }
+    .close-modal { position: absolute; top: 10px; right: 15px; font-size: 24px; cursor: pointer; font-weight: bold; color: #666; }
+    .log-box { background: #f8f9fa; padding: 10px; border: 1px solid #ddd; border-radius: 5px; max-height: 200px; overflow-y: auto; font-family: monospace; font-size: 11px; margin-top: 10px; white-space: pre-wrap; color: #333; }
   </style>
 </head>
 <body>
 
-<div class="version-tag">v1.6.6</div>
+<div class="version-tag">v1.6.7</div>
 
 <div id="app" class="box">
     <div id="loginPage">
@@ -131,15 +131,15 @@
         <table class="res-table"><thead><tr><th>Kullanıcı</th><th>Cihaz</th><th>Zaman</th><th>İşlem</th></tr></thead><tbody id="adminBody"></tbody></table>
         <button onclick="logout()" style="background:#666; color:white; margin-top:20px;">Güvenli Çıkış</button>
     </div>
+</div>
 
-    <div id="detailModal" class="modal">
-        <div class="modal-content">
-            <span class="close-modal" onclick="closeModal()">×</span>
-            <h3>Randevu Detayları</h3>
-            <div id="modalDetails"></div>
-            <h4>İşlem Geçmişi (Log)</h4>
-            <div id="modalLogs" class="log-box"></div>
-        </div>
+<div id="detailModal" class="modal">
+    <div class="modal-content">
+        <span class="close-modal" onclick="closeModal()">×</span>
+        <h3 style="margin-top:0;">Randevu Detayları</h3>
+        <div id="modalDetails" style="font-size:13px; line-height:1.6;"></div>
+        <h4 style="margin-bottom:5px; margin-top:15px;">İşlem Geçmişi (Log)</h4>
+        <div id="modalLogs" class="log-box"></div>
     </div>
 </div>
 
@@ -284,23 +284,6 @@ async function saveBooking() {
     alert("İşlem Başarılı!"); refreshView(); loadUserData(); if(SUPER_ADMINS.includes(currentUser.email)) loadAdminData();
 }
 
-// LOG GÖRÜNTÜLEME (HATA GİDERİLDİ: MAP KULLANIMI)
-function showDetails(id) {
-    const doc = appointmentsMap[id];
-    if(!doc) return alert("Veri bulunamadı");
-    
-    document.getElementById("modalDetails").innerHTML = `
-        <b>Öğrenci:</b> ${doc.name}<br>
-        <b>Laboratuvar:</b> ${doc.lab}<br>
-        <b>Tarih:</b> ${formatDate(doc.date)}<br>
-        <b>Cihazlar:</b> ${doc.equipment}<br>
-        <b>Saatler:</b> ${doc.time}
-    `;
-    document.getElementById("modalLogs").innerText = doc.history || "Kayıt yok.";
-    document.getElementById("detailModal").classList.add("active");
-}
-function closeModal() { document.getElementById("detailModal").classList.remove("active"); }
-
 async function editRes(id, lab, date, equipStr, timeStr, owner, history) {
     if (!canProcess(date, 'edit')) { alert("Süresi dolmuş randevular düzenlenemez!"); return; }
     editingId = id; editingOwner = owner; editingHistory = history; 
@@ -313,14 +296,30 @@ async function editRes(id, lab, date, equipStr, timeStr, owner, history) {
     document.getElementById("bookingPage").scrollIntoView({ behavior: 'smooth' });
 }
 
+// LOG GÖRÜNTÜLEME
+window.showDetails = function(id) {
+    const doc = appointmentsMap[id];
+    if(!doc) return alert("Veri yükleniyor veya bulunamadı.");
+    document.getElementById("modalDetails").innerHTML = `
+        <b>Öğrenci:</b> ${doc.name}<br>
+        <b>Laboratuvar:</b> ${doc.lab}<br>
+        <b>Tarih:</b> ${formatDate(doc.date)}<br>
+        <b>Cihazlar:</b> ${doc.equipment}<br>
+        <b>Saatler:</b> ${doc.time}
+    `;
+    document.getElementById("modalLogs").innerText = doc.history || "Kayıt yok.";
+    document.getElementById("detailModal").classList.add("active");
+}
+window.closeModal = function() { document.getElementById("detailModal").classList.remove("active"); }
+
 // LİSTELEME
 function formatDate(dateStr) { if(!dateStr) return ""; const d = new Date(dateStr); return `${d.getDate().toString().padStart(2, '0')}.${(d.getMonth() + 1).toString().padStart(2, '0')}.${d.getFullYear()}`; }
 
 async function loadAdminData() {
     const res = await databases.listDocuments(DB_ID, COLL_APP, [Query.orderDesc('$createdAt')]);
     document.getElementById("adminBody").innerHTML = res.documents.map(doc => {
+        appointmentsMap[doc.$id] = doc;
         const past = !canProcess(doc.date, 'edit');
-        appointmentsMap[doc.$id] = doc; // Haritaya kaydet
         return `<tr>
             <td>${doc.name}</td>
             <td>${doc.equipment}</td>
@@ -337,11 +336,9 @@ async function loadAdminData() {
 async function loadUserData() {
     const res = await databases.listDocuments(DB_ID, COLL_APP, [Query.equal('name', currentUser.name), Query.orderDesc('$createdAt')]);
     document.getElementById("userBody").innerHTML = res.documents.map(doc => {
+        appointmentsMap[doc.$id] = doc;
         const past = !canProcess(doc.date, 'edit');
-        appointmentsMap[doc.$id] = doc; // Haritaya kaydet
-        return `<tr>
-            <td><b>${doc.lab}</b><br>${doc.equipment}</td>
-            <td>${formatDate(doc.date)}<br>${doc.time}</td>
+        return `<tr><td><b>${doc.lab}</b><br>${doc.equipment}</td><td>${formatDate(doc.date)}<br>${doc.time}</td>
             <td>
                 <button class="info-btn" onclick="showDetails('${doc.$id}')">i</button>
                 <button class="edit-btn" ${past ? 'disabled' : ''} onclick="editRes('${doc.$id}', '${doc.lab}', '${doc.date}', '${doc.equipment}', '${doc.time}', '${doc.name}', \`${doc.history || ''}\`)">${past ? '-' : 'Düz.'}</button>
