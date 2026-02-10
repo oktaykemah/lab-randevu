@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>IKC Lab Booking - v2.0.0</title>
+  <title>IKC Lab Booking - v2.0.1</title>
   <script src="https://cdn.jsdelivr.net/npm/appwrite@13.0.1"></script>
   <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
   <style>
@@ -74,7 +74,7 @@
 </head>
 <body>
 
-<div class="version-tag">v2.0.0</div>
+<div class="version-tag">v2.0.1</div>
 
 <div id="app" class="box">
     <div id="loginPage">
@@ -179,7 +179,7 @@
         
         <h3>Tüm Randevular</h3>
         <table class="res-table">
-            <thead><tr><th>ID</th><th>Kullanıcı</th><th>Tel</th><th>Cihaz</th><th>Zaman</th><th>İşlem</th></tr></thead>
+            <thead><tr><th>ID</th><th>Kullanıcı</th><th>Tel</th><th>Lab</th><th>Cihaz</th><th>Zaman</th><th>İşlem</th></tr></thead>
             <tbody id="adminBody"></tbody>
         </table>
         <button onclick="logout()" style="background:#666; color:white; margin-top:20px;">Güvenli Çıkış</button>
@@ -581,7 +581,7 @@ async function loadAdminData() {
     document.getElementById("adminBody").innerHTML = res.documents.map(doc => {
         appointmentsMap[doc.$id] = doc; if (doc.name === "LAB_KAPALI" || doc.name === "LAB_ACIK") return ""; 
         const past = !canProcess(doc.date, 'edit'); const userDetail = userMap[doc.name] || { id: '-', phone: '-' };
-        return `<tr><td>${userDetail.id}</td><td>${doc.name}</td><td>${userDetail.phone}</td><td>${doc.equipment}</td><td>${formatDate(doc.date)} / ${doc.time}</td><td><button class="info-btn" onclick="showDetails('${doc.$id}')">i</button><button class="edit-btn" ${past ? 'disabled' : ''} onclick="editRes('${doc.$id}', '${doc.lab}', '${doc.date}', '${doc.equipment}', '${doc.time}', '${doc.name}', \`${doc.history || ''}\`)">${past ? '-' : 'Düz.'}</button><button class="delete-btn" ${past ? 'disabled' : ''} onclick="deleteRes('${doc.$id}', true)">${past ? '-' : 'Sil'}</button></td></tr>`;
+        return `<tr><td>${userDetail.id}</td><td>${doc.name}</td><td>${userDetail.phone}</td><td>${doc.lab}</td><td>${doc.equipment}</td><td>${formatDate(doc.date)} / ${doc.time}</td><td><button class="info-btn" onclick="showDetails('${doc.$id}')">i</button><button class="edit-btn" ${past ? 'disabled' : ''} onclick="editRes('${doc.$id}', '${doc.lab}', '${doc.date}', '${doc.equipment}', '${doc.time}', '${doc.name}', \`${doc.history || ''}\`)">${past ? '-' : 'Düz.'}</button><button class="delete-btn" ${past ? 'disabled' : ''} onclick="deleteRes('${doc.$id}', true)">${past ? '-' : 'Sil'}</button></td></tr>`;
     }).join('');
 }
 
