@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>İKÇÜ Lab Randevu - v2.0.7</title>
+  <title>İKÇÜ Lab Randevu - v2.1.0</title>
   <script src="https://cdn.jsdelivr.net/npm/appwrite@13.0.1"></script>
   <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -74,6 +74,14 @@
 
     .info-btn { background: var(--info); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 11px; margin-right: 3px; font-weight: bold; }
     
+    /* STATUS BADGES */
+    .badge-completed { background: #d4edda; color: #155724; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; border: 1px solid #c3e6cb; }
+    .badge-noshow { background: #f8d7da; color: #721c24; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; border: 1px solid #f5c6cb; }
+    .badge-pending { background: #fff3cd; color: #856404; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; border: 1px solid #ffeeba; }
+    
+    .btn-complete { background: var(--success); color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 11px; margin-right: 3px; }
+    .btn-noshow { background: var(--danger); color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 11px; margin-right: 3px; }
+
     table.res-table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 13px; }
     .res-table th, .res-table td { text-align: left; padding: 10px; border-bottom: 1px solid #eee; }
     .res-table th { background: #f8f9fa; color: #555; }
@@ -98,7 +106,7 @@
 </head>
 <body>
 
-<div class="version-tag">v2.0.7</div>
+<div class="version-tag">v2.1.0</div>
 
 <div id="app" class="box">
     <div id="loginPage" class="login-wrapper">
@@ -217,7 +225,7 @@
 
         <div id="tab-myRes" class="tab-content hidden">
             <h3><i class="fa-solid fa-list-check"></i> Mevcut Randevularınız</h3>
-            <table class="res-table"><thead><tr><th>Lab / Cihaz</th><th>Zaman</th><th>İşlem</th></tr></thead><tbody id="userBody"></tbody></table>
+            <table class="res-table"><thead><tr><th>Lab / Cihaz</th><th>Durum</th><th>Zaman</th><th>İşlem</th></tr></thead><tbody id="userBody"></tbody></table>
         </div>
 
         <button onclick="logout()" style="background:#666; color:white; margin-top:20px; width:auto; padding:10px 20px;"><i class="fa-solid fa-right-from-bracket"></i> Çıkış Yap</button>
@@ -239,7 +247,7 @@
         <div id="adm-list" class="tab-content">
             <h3><i class="fa-solid fa-list"></i> Tüm Randevular Listesi</h3>
             <table class="res-table">
-                <thead><tr><th>ID</th><th>Kullanıcı</th><th>Tel</th><th>Lab</th><th>Cihaz</th><th>Zaman</th><th>İşlem</th></tr></thead>
+                <thead><tr><th>ID</th><th>Kullanıcı</th><th>Lab / Cihaz</th><th>Zaman</th><th>Durum</th><th>İşlem</th></tr></thead>
                 <tbody id="adminBody"></tbody>
             </table>
         </div>
@@ -249,7 +257,7 @@
                 <h3><i class="fa-solid fa-users"></i> Kayıtlı Kullanıcı Havuzu</h3>
                 <div style="max-height: 400px; overflow-y: auto;">
                     <table class="res-table" style="margin-top:0;">
-                        <thead style="background:#f9f9f9; position: sticky; top: 0;"><tr><th>ID</th><th>Ad Soyad</th><th>Telefon</th></tr></thead>
+                        <thead style="background:#f9f9f9; position: sticky; top: 0;"><tr><th>ID</th><th>Ad Soyad</th><th>Telefon</th><th>Durum</th><th>İşlem</th></tr></thead>
                         <tbody id="userProfilesBody"></tbody>
                     </table>
                 </div>
@@ -357,9 +365,6 @@ async function checkUserQuota(targetDate) {
             const duration = doc.time.split(', ').length;
             
             if (type === 'long') {
-                // Her 3 saat = 1 blok olarak kabul edilir. 
-                // Artık aynı gün bile olsa split edildiği için her kayıt kendi süresince sayılır.
-                // 3 saatlik bir kayıt = 1, 6 saatlik (eski) bir kayıt = 2.
                 usedLongBlocks += Math.floor(duration / 3) || 1; // En az 1 say
             } else {
                 usedShort += duration;
@@ -419,9 +424,29 @@ function canProcess(dateStr, type) {
 async function loadUserProfiles() {
     try {
         const res = await databases.listDocuments(DB_ID, COLL_PROFILES, [Query.orderAsc('studentId')]);
-        document.getElementById("userProfilesBody").innerHTML = res.documents.map(u => `<tr><td style="font-weight:bold;">${u.studentId}</td><td>${u.name}</td><td>${u.phone}</td></tr>`).join('');
+        // USER MANAGEMENT TABLOSU (ADMIN)
+        document.getElementById("userProfilesBody").innerHTML = res.documents.map(u => {
+            const isBlacklisted = u.blacklisted || false;
+            return `<tr>
+                <td style="font-weight:bold;">${u.studentId}</td>
+                <td>${u.name}</td>
+                <td>${u.phone}</td>
+                <td><span class="${isBlacklisted ? 'badge-noshow' : 'badge-completed'}">${isBlacklisted ? 'KARA LİSTE' : 'Aktif'}</span></td>
+                <td><button onclick="toggleBlacklist('${u.$id}', ${isBlacklisted})" style="background:${isBlacklisted ? 'var(--success)' : '#444'}; color:white; border:none; padding:5px 10px; border-radius:5px; cursor:pointer; font-size:11px;">${isBlacklisted ? 'Affet (Aç)' : 'Banla'} </button></td>
+            </tr>`;
+        }).join('');
+        
         res.documents.forEach(u => { userMap[u.name] = { id: u.studentId, phone: u.phone, email: u.email || "Bilinmiyor" }; });
-    } catch (e) {}
+    } catch (e) { console.error("Profil Yükleme Hatası", e); }
+}
+
+async function toggleBlacklist(docId, currentStatus) {
+    if(!confirm(currentStatus ? "Kullanıcının banı kaldırılsın mı?" : "Kullanıcı KARA LİSTEYE alınsın mı?")) return;
+    try {
+        await databases.updateDocument(DB_ID, COLL_PROFILES, docId, { blacklisted: !currentStatus });
+        alert("Kullanıcı durumu güncellendi.");
+        loadUserProfiles();
+    } catch(e) { alert("Hata: " + e.message); }
 }
 
 async function listAdminEquipments() {
@@ -572,8 +597,16 @@ async function renderCalendar(lab, date, headId, bodyId, isAdminView, devices) {
     }).join('');
 }
 
-// KAYIT İŞLEMİ (DÜZELTİLDİ: Kayıt Algoritması + Kota Kontrolü)
+// KAYIT İŞLEMİ (DÜZELTİLDİ: Kayıt Algoritması + Kota Kontrolü + BLACKLIST KONTROLÜ)
 async function saveBooking() {
+    // 0. KARA LİSTE KONTROLÜ
+    try {
+        const userProfile = await databases.listDocuments(DB_ID, COLL_PROFILES, [Query.equal('email', currentUser.email)]);
+        if (userProfile.documents.length > 0 && userProfile.documents[0].blacklisted === true) {
+            return alert("🚫 Daha önceki randevunuza gelmediğiniz için randevu alamazsınız. Lab sorumlusu ile iletişime geçiniz.");
+        }
+    } catch(e) { console.log("Profil kontrol hatası (Önemli değil):", e); }
+
     const lab = document.getElementById("labSelect").value, date = document.getElementById("resDate").value;
     if (selectedCells.length === 0) return alert("Lütfen tablodan seçim yapınız!");
 
@@ -585,9 +618,6 @@ async function saveBooking() {
     uniqueEquipsCheck.forEach(eq => {
         const type = equipmentTypeMap[eq] || 'short';
         if (type === 'long') {
-            // Long tipinde seçilen saatlere göre blok sayısı belirle
-            // toggleSlot zaten 3 saatlik blok seçtiriyor. Ancak saveBooking döngüsü her blok için 1 kayıt atıyor.
-            // Burada kaç tane 3'lü grup var ona bakmalıyız.
             const totalHours = selectedCells.filter(s => s.equip === eq).length;
             proposedLong += Math.floor(totalHours / 3);
         }
@@ -615,16 +645,15 @@ async function saveBooking() {
             const times = selectedCells.filter(s => s.equip === eq).map(s => s.time);
 
             if (type === 'long') {
-                // BLOKLARI AYRI AYRI KAYDET (Split Logic)
                 const morningParams = ["10:00-11:00", "11:00-12:00", "12:00-13:00"];
                 const afternoonParams = ["13:00-14:00", "14:00-15:00", "15:00-16:00"];
                 const hasMorning = morningParams.every(h => times.includes(h));
                 const hasAfternoon = afternoonParams.every(h => times.includes(h));
 
-                if(hasMorning) { await databases.createDocument(DB_ID, COLL_APP, ID.unique(), { name: finalOwner, lab, date, equipment: eq, time: morningParams.join(', '), history: logEntry }); }
-                if(hasAfternoon) { await databases.createDocument(DB_ID, COLL_APP, ID.unique(), { name: finalOwner, lab, date, equipment: eq, time: afternoonParams.join(', '), history: logEntry }); }
+                if(hasMorning) { await databases.createDocument(DB_ID, COLL_APP, ID.unique(), { name: finalOwner, lab, date, equipment: eq, time: morningParams.join(', '), history: logEntry, status: 'pending' }); }
+                if(hasAfternoon) { await databases.createDocument(DB_ID, COLL_APP, ID.unique(), { name: finalOwner, lab, date, equipment: eq, time: afternoonParams.join(', '), history: logEntry, status: 'pending' }); }
             } else {
-                await databases.createDocument(DB_ID, COLL_APP, ID.unique(), { name: finalOwner, lab, date, equipment: eq, time: times.join(', '), history: logEntry });
+                await databases.createDocument(DB_ID, COLL_APP, ID.unique(), { name: finalOwner, lab, date, equipment: eq, time: times.join(', '), history: logEntry, status: 'pending' });
             }
         }
         
@@ -634,7 +663,6 @@ async function saveBooking() {
             const userEmail = userMap[finalOwner]?.email || "Bilinmiyor"; if(userEmail !== "Bilinmiyor") sendEmail(userEmail, "Randevunuz Düzenlendi", `${date} tarihindeki randevunuz yönetici tarafından güncellendi.`);
         } else if (!isAdmin) {
             const supervisorEmails = LAB_EMAILS[lab]; 
-            // SADECE DEĞİŞİKLİK VE İPTAL (EditAction)
             if(isEditAction) sendEmail(supervisorEmails, `Randevu Düzenlendi`, `${currentUser.name}, ${date} tarihi için işlem yaptı.`);
         }
 
@@ -651,7 +679,6 @@ async function editRes(id, lab, date, equipStr, timeStr, owner, history) {
     document.getElementById("editModeNotice").classList.remove("hidden");
     document.getElementById("labSelect").value = lab; document.getElementById("resDate").value = date.split('T')[0];
     
-    // TAB DEĞİŞİKLİĞİ EKLENDİ
     openUserTab('makeRes');
     
     await refreshView(); document.getElementById("bookingPage").classList.remove("hidden"); document.getElementById("bookingPage").scrollIntoView({ behavior: 'smooth' });
@@ -675,10 +702,35 @@ async function deleteRes(id, isAdmin) {
     } catch(e) { alert("Hata: " + e.message); }
 }
 
+async function markResStatus(id, type, userName) {
+    if(!confirm(type === 'completed' ? "Randevu tamamlandı olarak işaretlensin mi?" : "Randevu GELMEDİ olarak işaretlenip kullanıcı banlansın mı?")) return;
+    
+    try {
+        // 1. Randevu Durumunu Güncelle
+        const statusVal = type === 'completed' ? 'completed' : 'noshow';
+        await databases.updateDocument(DB_ID, COLL_APP, id, { status: statusVal });
+
+        // 2. Eğer Gelmediyse Kullanıcıyı Banla
+        if (type === 'noshow') {
+            const profiles = await databases.listDocuments(DB_ID, COLL_PROFILES, [Query.equal('name', userName)]);
+            if(profiles.documents.length > 0) {
+                await databases.updateDocument(DB_ID, COLL_PROFILES, profiles.documents[0].$id, { blacklisted: true });
+                alert("Randevu 'Gelmedi' olarak işaretlendi ve kullanıcı KARA LİSTEYE alındı.");
+            } else {
+                alert("Randevu işaretlendi ancak kullanıcı profili bulunamadı (Banlanamadı).");
+            }
+        } else {
+            alert("Randevu başarıyla tamamlandı.");
+        }
+        loadAdminData();
+        loadUserProfiles(); // Ban durumunu güncelle
+    } catch(e) { alert("Hata: " + e.message); }
+}
+
 window.showDetails = function(id) {
     const doc = appointmentsMap[id]; if(!doc) return alert("Veri bulunamadı.");
     const userDetail = userMap[doc.name] || { id: '-', phone: '-' };
-    document.getElementById("modalDetails").innerHTML = `<b>Öğrenci:</b> ${doc.name} (${userDetail.id})<br><b>Telefon:</b> ${userDetail.phone}<br><b>Laboratuvar:</b> ${doc.lab}<br><b>Tarih:</b> ${formatDate(doc.date)}<br><b>Cihazlar:</b> ${doc.equipment}<br><b>Saatler:</b> ${doc.time}`;
+    document.getElementById("modalDetails").innerHTML = `<b>Öğrenci:</b> ${doc.name} (${userDetail.id})<br><b>Telefon:</b> ${userDetail.phone}<br><b>Laboratuvar:</b> ${doc.lab}<br><b>Tarih:</b> ${formatDate(doc.date)}<br><b>Cihazlar:</b> ${doc.equipment}<br><b>Saatler:</b> ${doc.time}<br><b>Durum:</b> ${doc.status || 'pending'}`;
     document.getElementById("modalLogs").innerText = doc.history || "Kayıt yok."; document.getElementById("detailModal").classList.add("active");
 }
 window.closeModal = function() { document.getElementById("detailModal").classList.remove("active"); }
@@ -693,7 +745,6 @@ window.openUserTab = function(tabName) {
     document.getElementById('tab-' + tabName).classList.remove('hidden');
     document.getElementById('btn-' + tabName).classList.add('active');
     
-    // GÜNCELLEME: TAB DEĞİŞİNCE VERİYİ YENİLE
     if(tabName === 'myRes') loadUserData();
 }
 
@@ -708,26 +759,50 @@ window.openAdminTab = function(tabName) {
     document.getElementById('adm-' + tabName).classList.remove('hidden');
     document.getElementById('btn-adm-' + tabName).classList.add('active');
     
-    // GÜNCELLEME: TAB DEĞİŞİNCE VERİYİ YENİLE
     if(tabName === 'list') loadAdminData();
+    if(tabName === 'users') loadUserProfiles();
 }
 
 async function loadAdminData() {
     try {
-        console.log("Admin verisi yükleniyor... (Sorting by JS)");
-        // DÜZELTME: Veritabanı sorgusundan orderDesc('$createdAt') kaldırıldı.
-        // Çünkü compound index (isim+tarih) eksik. Sıralama JS ile yapılacak.
-        const res = await databases.listDocuments(DB_ID, COLL_APP, []); // Sorgu boş, tümünü getirir.
-        
-        // JS Tarafında Tarihe Göre Yeniden Eskiye Sırala
+        const res = await databases.listDocuments(DB_ID, COLL_APP, []); 
         res.documents.sort((a, b) => new Date(b.$createdAt) - new Date(a.$createdAt));
-        
-        console.log("Admin verisi geldi:", res.documents);
         
         document.getElementById("adminBody").innerHTML = res.documents.map(doc => {
             appointmentsMap[doc.$id] = doc; if (doc.name === "LAB_KAPALI" || doc.name === "LAB_ACIK") return ""; 
-            const past = !canProcess(doc.date, 'edit'); const userDetail = userMap[doc.name] || { id: '-', phone: '-' };
-            return `<tr><td>${userDetail.id}</td><td>${doc.name}</td><td>${userDetail.phone}</td><td>${doc.lab}</td><td>${doc.equipment}</td><td>${formatDate(doc.date)} / ${doc.time}</td><td><button class="info-btn" onclick="showDetails('${doc.$id}')">i</button><button class="edit-btn" ${past ? 'disabled' : ''} onclick="editRes('${doc.$id}', '${doc.lab}', '${doc.date}', '${doc.equipment}', '${doc.time}', '${doc.name}', \`${doc.history || ''}\`)">${past ? '-' : 'Düz.'}</button><button class="delete-btn" ${past ? 'disabled' : ''} onclick="deleteRes('${doc.$id}', true)">${past ? '-' : 'Sil'}</button></td></tr>`;
+            
+            const past = !canProcess(doc.date, 'edit'); 
+            const userDetail = userMap[doc.name] || { id: '-', phone: '-' };
+            const status = doc.status || 'pending';
+            
+            let statusBadge = `<span class="badge-pending">Bekliyor</span>`;
+            if(status === 'completed') statusBadge = `<span class="badge-completed">Tamamlandı</span>`;
+            if(status === 'noshow') statusBadge = `<span class="badge-noshow">GELMEDİ</span>`;
+
+            // Admin Butonları (Sadece günü gelmiş veya geçmiş VE işlem yapılmamış randevular için)
+            let adminActions = "";
+            const isTodayOrPast = new Date(doc.date) <= new Date(); // Tarih kontrolü (Basitçe)
+            // Daha hassas kontrol:
+            const rDate = new Date(doc.date); rDate.setHours(23,59,59);
+            const now = new Date();
+            
+            if (now >= new Date(doc.date) && status === 'pending') {
+                adminActions = `<br><button class="btn-complete" onclick="markResStatus('${doc.$id}', 'completed', '${doc.name}')">✅ Tamamla</button>
+                                <button class="btn-noshow" onclick="markResStatus('${doc.$id}', 'noshow', '${doc.name}')">❌ Gelmedi</button>`;
+            }
+
+            return `<tr>
+                <td>${userDetail.id}</td>
+                <td>${doc.name}<br><small>${userDetail.phone}</small></td>
+                <td>${doc.lab}<br>${doc.equipment}</td>
+                <td>${formatDate(doc.date)} / ${doc.time}</td>
+                <td>${statusBadge}${adminActions}</td>
+                <td>
+                    <button class="info-btn" onclick="showDetails('${doc.$id}')">i</button>
+                    <button class="edit-btn" ${past ? 'disabled' : ''} onclick="editRes('${doc.$id}', '${doc.lab}', '${doc.date}', '${doc.equipment}', '${doc.time}', '${doc.name}', \`${doc.history || ''}\`)">Düz.</button>
+                    <button class="delete-btn" ${past ? 'disabled' : ''} onclick="deleteRes('${doc.$id}', true)">Sil</button>
+                </td>
+            </tr>`;
         }).join('');
     } catch(e) {
         console.error("Admin veri hatası:", e);
@@ -737,20 +812,31 @@ async function loadAdminData() {
 
 async function loadUserData() {
     try {
-        console.log("Kullanıcı verisi yükleniyor... (Sorting by JS)", currentUser.name);
-        // DÜZELTME: Veritabanı sorgusundan orderDesc('$createdAt') kaldırıldı.
-        // Sadece 'name' filtresi kullanılıyor çünkü 'name_check' indeksi mevcut.
         const res = await databases.listDocuments(DB_ID, COLL_APP, [Query.equal('name', currentUser.name)]);
-        
-        // JS Tarafında Tarihe Göre Yeniden Eskiye Sırala
         res.documents.sort((a, b) => new Date(b.$createdAt) - new Date(a.$createdAt));
-        
-        console.log("Kullanıcı verisi geldi:", res.documents);
 
         document.getElementById("userBody").innerHTML = res.documents.map(doc => {
             appointmentsMap[doc.$id] = doc;
             const canEdit = canProcess(doc.date, 'edit'); const canDelete = canProcess(doc.date, 'delete');
-            return `<tr><td><b>${doc.lab}</b><br>${doc.equipment}</td><td>${formatDate(doc.date)}<br>${doc.time}</td><td><button class="info-btn" onclick="showDetails('${doc.$id}')">i</button><button class="edit-btn" ${canEdit ? '' : 'disabled'} onclick="editRes('${doc.$id}', '${doc.lab}', '${doc.date}', '${doc.equipment}', '${doc.time}', '${doc.name}', \`${doc.history || ''}\`)">${canEdit ? 'Düz.' : '-'}</button><button class="delete-btn" ${canDelete ? '' : 'disabled'} onclick="deleteRes('${doc.$id}', false)">${canDelete ? 'İptal' : '-'}</button></td></tr>`;
+            const status = doc.status || 'pending';
+            
+            let statusBadge = `<span class="badge-pending">Bekliyor</span>`;
+            if(status === 'completed') statusBadge = `<span class="badge-completed">Tamamlandı</span>`;
+            if(status === 'noshow') statusBadge = `<span class="badge-noshow">GELMEDİ</span>`;
+
+            // Eğer tamamlandı veya gelmedi ise butonları gizle
+            const isProcessed = status !== 'pending';
+
+            return `<tr>
+                <td><b>${doc.lab}</b><br>${doc.equipment}</td>
+                <td>${statusBadge}</td>
+                <td>${formatDate(doc.date)}<br>${doc.time}</td>
+                <td>
+                    <button class="info-btn" onclick="showDetails('${doc.$id}')">i</button>
+                    <button class="edit-btn" ${canEdit && !isProcessed ? '' : 'disabled'} onclick="editRes('${doc.$id}', '${doc.lab}', '${doc.date}', '${doc.equipment}', '${doc.time}', '${doc.name}', \`${doc.history || ''}\`)">Düz.</button>
+                    <button class="delete-btn" ${canDelete && !isProcessed ? '' : 'disabled'} onclick="deleteRes('${doc.$id}', false)">İptal</button>
+                </td>
+            </tr>`;
         }).join('');
     } catch(e) {
         console.error("Kullanıcı veri hatası:", e);
@@ -774,7 +860,7 @@ async function handleRegister() {
     const pass = document.getElementById("regPass").value; const name = document.getElementById("regFullName").value; const phone = document.getElementById("regPhone").value.trim();
     if(!phone) return alert("Telefon zorunlu!");
     try { await account.create(ID.unique(), email, pass, name); await account.createEmailSession(email, pass); await account.updatePrefs({ phone: phone });
-        try { await databases.createDocument(DB_ID, COLL_PROFILES, ID.unique(), { studentId: idVal, name: name, phone: phone, email: email }); } catch(err) {}
+        try { await databases.createDocument(DB_ID, COLL_PROFILES, ID.unique(), { studentId: idVal, name: name, phone: phone, email: email, blacklisted: false }); } catch(err) {}
         await account.createVerification("https://oktaykemah.github.io/lab-randevu/"); alert("Mail gönderildi."); await account.deleteSession('current'); switchPage('loginPage'); 
     } catch (e) { alert(e.message); } 
 }
