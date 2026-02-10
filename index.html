@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>IKC Lab Booking - v1.8.1</title>
+  <title>IKC Lab Booking - v1.8.2</title>
   <script src="https://cdn.jsdelivr.net/npm/appwrite@13.0.1"></script>
   <style>
-    :root { --primary: #0066cc; --admin: #2c3e50; --danger: #e74c3c; --success: #27ae60; --warning: #f39c12; --info: #17a2b8; --occupied-other: #fdeaea; --occupied-me: #e3f2fd; --selected: #218838; --holiday: #fff3e0; }
+    :root { --primary: #0066cc; --admin: #2c3e50; --danger: #e74c3c; --success: #27ae60; --warning: #f39c12; --info: #17a2b8; --occupied-other: #fdeaea; --occupied-me: #e3f2fd; --selected: #218838; --blocked: #636e72; --holiday: #fff3e0; }
     body { font-family: 'Segoe UI', sans-serif; background: #f4f7f9; margin: 0; padding: 20px; display: flex; justify-content: center; min-height: 100vh; position: relative; }
     
     .version-tag { position: fixed; bottom: 10px; left: 10px; font-size: 11px; color: #888; z-index: 1000; font-weight: bold; background: rgba(255,255,255,0.7); padding: 2px 5px; border-radius: 4px; }
@@ -31,6 +31,11 @@
     .slot-other { background: var(--occupied-other); color: var(--danger); font-weight: bold; cursor: not-allowed; }
     .slot-inactive { background: #f2f2f2; color: #a0a0a0; font-style: italic; font-weight: bold; cursor: not-allowed; }
     
+    /* ADMİN BLOKLAMA STİLİ */
+    .slot-blocked { background: var(--blocked); color: white; font-weight: bold; cursor: not-allowed; }
+    .slot-admin-clickable { cursor: pointer !important; } /* Admin için tıklanabilir imleç */
+    .slot-admin-clickable:hover { opacity: 0.8; }
+
     .main-btn { background: var(--primary); color: white; border: none; font-weight: bold; cursor: pointer; transition: 0.3s; margin-top: 20px; }
     .save-envanter-btn { background: var(--success); color: white; border: none; padding: 12px; border-radius: 8px; cursor: pointer; margin-top: 15px; font-weight: bold; width: 100%; }
     .delete-btn { background: var(--danger); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 11px; }
@@ -57,7 +62,7 @@
 </head>
 <body>
 
-<div class="version-tag">v1.8.1</div>
+<div class="version-tag">v1.8.2</div>
 
 <div id="app" class="box">
     <div id="loginPage">
@@ -140,7 +145,8 @@
         </div>
         
         <div style="background: #f0f4f8; padding: 15px; border-radius: 10px; margin-top: 20px; border: 1px solid #d1d9e0;">
-            <h3>Doluluk İzleme (Admin)</h3>
+            <h3>Doluluk İzleme & Hızlı Engel (YENİ)</h3>
+            <p style="font-size:11px; color:#666;">* Admin: Boş hücrelere tıklayarak saati kapatabilir (KAPALI), kapalı hücrelere tıklayarak tekrar açabilirsiniz.</p>
             <div style="display:flex; gap:10px;"><select id="adminViewLab" onchange="loadAdminCalendar()" style="flex:2;"><option value="Malzeme Karakterizasyon Lab.">Malzeme Karakterizasyon Lab.</option><option value="Numune Hazırlama Lab.">Numune Hazırlama Lab.</option><option value="Üretim Lab.">Üretim Lab.</option></select><input id="adminViewDate" type="date" onchange="loadAdminCalendar()" style="flex:1;"></div>
             <div class="calendar-container"><table class="cal-table"><thead id="adminCalHead"></thead><tbody id="adminCalBody"></tbody></table></div>
         </div>
@@ -176,9 +182,9 @@ const LAB_BOSSES = { "Numune Hazırlama Lab.": "Arş. Gör. Oktay Kemah", "Malze
 const hours = ["09:00-10:00", "10:00-11:00", "11:00-12:00", "12:00-13:00", "13:00-14:00", "14:00-15:00", "15:00-16:00", "16:00-17:00"];
 let currentUser = null, editingId = null, editingOwner = null, editingHistory = "";
 let appointmentsMap = {}, userMap = {};
-let selectedCells = []; // Seçili hücreleri tutan dizi
+let selectedCells = []; 
 
-// ZAMAN KONTROLLERİ
+// TIME UTILS
 function getHoliday(dateStr) {
     const d = new Date(dateStr), day = d.getDay(), monthDay = (d.getMonth() + 1) + "-" + d.getDate();
     if (day === 0 || day === 6) return "Hafta Sonu (Laboratuvar Kapalı)";
@@ -247,10 +253,34 @@ async function deleteDevice(id) { if(confirm("Emin misiniz?")) { await databases
 
 // HÜCRE SEÇİM MANTIĞI
 window.toggleSlot = function(cell, equipName, timeSlot) {
-    if (cell.classList.contains('slot-occupied') || cell.classList.contains('slot-inactive') || cell.classList.contains('slot-me') || cell.classList.contains('slot-other')) return;
+    if (cell.classList.contains('slot-occupied') || cell.classList.contains('slot-inactive') || cell.classList.contains('slot-me') || cell.classList.contains('slot-other') || cell.classList.contains('slot-blocked')) return;
     const index = selectedCells.findIndex(s => s.equip === equipName && s.time === timeSlot);
     if (index > -1) { selectedCells.splice(index, 1); cell.classList.remove('slot-selected'); cell.innerText = "BOŞ"; } 
     else { selectedCells.push({ equip: equipName, time: timeSlot }); cell.classList.add('slot-selected'); cell.innerText = "SEÇİLDİ"; }
+}
+
+// ADMIN BLOKLAMA FONKSİYONU (YENİ)
+window.toggleAdminBlock = async function(lab, date, equip, time, docId) {
+    if (docId) {
+        // Zaten bloklu (KAPALI), kaldır (Delete)
+        try {
+            await databases.deleteDocument(DB_ID, COLL_APP, docId);
+            loadAdminCalendar(); // Tabloyu yenile
+        } catch(e) { alert("Hata: " + e.message); }
+    } else {
+        // Boş, blokla (Create LAB_KAPALI)
+        try {
+            await databases.createDocument(DB_ID, COLL_APP, ID.unique(), {
+                name: "LAB_KAPALI",
+                lab: lab,
+                date: date,
+                equipment: equip,
+                time: time,
+                history: `Kapatıldı: ${currentUser.name} - ${new Date().toLocaleString()}`
+            });
+            loadAdminCalendar(); // Tabloyu yenile
+        } catch(e) { alert("Hata: " + e.message); }
+    }
 }
 
 async function refreshView() {
@@ -277,81 +307,77 @@ async function renderCalendar(lab, date, headId, bodyId, isAdminView, devices) {
     document.getElementById(headId).innerHTML = `<tr><th>Saat</th>${devices.map(d => `<th>${d.name}</th>`).join('')}</tr>`;
     document.getElementById(bodyId).innerHTML = hours.map(h => {
         const row = devices.map(d => {
+            // Cihaz Durumu (Bakım/K.Dışı)
             if(d.status && d.status !== 'Kullanılabilir') return `<td class="slot-inactive">${d.status === 'Bakımda' ? 'BAKIM' : 'K.DIŞI'}</td>`;
+            
             const m = apps.documents.find(a => a.time.includes(h) && a.equipment.includes(d.name));
             
-            // Düzenleme modu: Bu slot şu an düzenleniyor, o yüzden SEÇİLİ olarak işaretle
+            // Düzenleme modu
             if (editingId && m && m.$id === editingId) {
                 const isSelected = selectedCells.find(s => s.equip === d.name && s.time === h);
                 return `<td class="${isSelected ? 'slot-selected' : 'slot-free'}" onclick="toggleSlot(this, '${d.name}', '${h}')">${isSelected ? 'SEÇİLDİ' : 'BOŞ'}</td>`;
             }
 
             if (m) {
+                // Admin Blok Kontrolü (LAB_KAPALI)
+                if (m.name === "LAB_KAPALI") {
+                    if (isAdminView) {
+                        // Admin tıklayarak açabilir
+                        return `<td class="slot-blocked slot-admin-clickable" onclick="toggleAdminBlock('${lab}', '${date}', '${d.name}', '${h}', '${m.$id}')">KAPALI</td>`;
+                    }
+                    return `<td class="slot-blocked">KAPALI</td>`; // Öğrenci sadece görür
+                }
+
                 if (isAdminView || SUPER_ADMINS.includes(currentUser.email)) return `<td class="slot-occupied">${m.name}</td>`;
                 if (m.name === currentUser.name) return `<td class="slot-me">BEN</td>`;
                 return `<td class="slot-other">DOLU</td>`;
             }
+            
+            // Boş Slot
             const isSelected = selectedCells.find(s => s.equip === d.name && s.time === h);
-            if (isAdminView) return `<td class="slot-free">BOŞ</td>`;
+            
+            if (isAdminView) {
+                // Admin buraya tıklayarak "KAPALI" yapabilir (docId yok, null gönder)
+                return `<td class="slot-free slot-admin-clickable" onclick="toggleAdminBlock('${lab}', '${date}', '${d.name}', '${h}', null)">BOŞ</td>`;
+            }
+            
             return `<td class="${isSelected ? 'slot-selected' : 'slot-free'}" onclick="toggleSlot(this, '${d.name}', '${h}')">${isSelected ? 'SEÇİLDİ' : 'BOŞ'}</td>`;
         }).join('');
         return `<tr><td><b>${h}</b></td>${row}</tr>`;
     }).join('');
 }
 
-// KAYIT İŞLEMİ (Cihaz Bazlı Kayıt - Matriks Sorunu Çözümü)
 async function saveBooking() {
     const lab = document.getElementById("labSelect").value, date = document.getElementById("resDate").value;
     if (selectedCells.length === 0) return alert("Lütfen tablodan en az bir zaman dilimi seçiniz!");
 
-    // Çakışma Kontrolü
-    const allEquips = [...new Set(selectedCells.map(s => s.equip))];
-    const allTimes = [...new Set(selectedCells.map(s => s.time))];
     const res = await databases.listDocuments(DB_ID, COLL_APP, [Query.equal('date', date), Query.equal('lab', lab)]);
-    
-    // Her seçili hücreyi tek tek kontrol et
     for (let cell of selectedCells) {
-        const conflict = res.documents.find(doc => 
-            doc.$id !== editingId && 
-            doc.equipment.includes(cell.equip) && 
-            doc.time.includes(cell.time)
-        );
+        const conflict = res.documents.find(doc => doc.$id !== editingId && doc.equipment.includes(cell.equip) && doc.time.includes(cell.time));
         if(conflict) return alert(`Hata: ${cell.equip} cihazı ${cell.time} saatinde dolu!`);
     }
     
     let finalOwner = currentUser.name;
     let logEntry = `Oluşturuldu: ${currentUser.name} - ${new Date().toLocaleString()}\n`;
-    
     if(editingId) {
         await databases.deleteDocument(DB_ID, COLL_APP, editingId);
         finalOwner = editingOwner; 
         const editor = currentUser.name;
         logEntry = editingHistory + `Düzenlendi: ${editor} tarafından - ${new Date().toLocaleString()}\n`;
-        editingId = null; editingOwner = null; editingHistory = "";
+        editingId = null; editingOwner = null; editingHistory = ""; selectedCells = [];
         document.getElementById("editModeNotice").classList.add("hidden");
     }
 
-    // KAYDETME ALGORİTMASI: Cihaza Göre Grupla
+    // Cihaz bazlı kayıt
     const uniqueEquips = [...new Set(selectedCells.map(s => s.equip))];
-    
     try {
         for (let eq of uniqueEquips) {
-            // Bu cihaz için seçilen saatleri bul
-            const timesForThisEquip = selectedCells
-                .filter(s => s.equip === eq)
-                .map(s => s.time);
-            
-            // Sadece bu cihaz ve ona ait saatler için bir kayıt oluştur
+            const timesForThisEquip = selectedCells.filter(s => s.equip === eq).map(s => s.time);
             await databases.createDocument(DB_ID, COLL_APP, ID.unique(), { 
-                name: finalOwner, 
-                lab, date, 
-                equipment: eq, // Tek cihaz
-                time: timesForThisEquip.join(', '), // Ona özel saatler
-                history: logEntry 
+                name: finalOwner, lab, date, equipment: eq, time: timesForThisEquip.join(', '), history: logEntry 
             });
         }
-        alert("İşlem Başarılı!"); selectedCells = []; 
-        refreshView(); loadUserData(); if(SUPER_ADMINS.includes(currentUser.email)) loadAdminData();
+        alert("İşlem Başarılı!"); selectedCells = []; refreshView(); loadUserData(); if(SUPER_ADMINS.includes(currentUser.email)) loadAdminData();
     } catch (e) { alert("Hata: " + e.message); }
 }
 
@@ -359,16 +385,11 @@ async function editRes(id, lab, date, equipStr, timeStr, owner, history) {
     if (!canProcess(date, 'edit')) { alert("Süresi dolmuş randevular düzenlenemez!"); return; }
     editingId = id; editingOwner = owner; editingHistory = history;
     selectedCells = [];
-    // Matriks mantığı ile gelmiş eski kayıtları veya tekil kayıtları yükle
-    const eqArr = equipStr.split(', ');
-    const tmArr = timeStr.split(', ');
+    const eqArr = equipStr.split(', '); const tmArr = timeStr.split(', ');
     eqArr.forEach(eq => { tmArr.forEach(tm => { selectedCells.push({ equip: eq, time: tm }); }); });
-
     document.getElementById("editModeNotice").classList.remove("hidden");
-    document.getElementById("labSelect").value = lab; 
-    document.getElementById("resDate").value = date.split('T')[0];
-    await refreshView(); 
-    document.getElementById("bookingPage").classList.remove("hidden");
+    document.getElementById("labSelect").value = lab; document.getElementById("resDate").value = date.split('T')[0];
+    await refreshView(); document.getElementById("bookingPage").classList.remove("hidden");
     document.getElementById("bookingPage").scrollIntoView({ behavior: 'smooth' });
 }
 
@@ -395,6 +416,8 @@ async function loadAdminData() {
     const res = await databases.listDocuments(DB_ID, COLL_APP, [Query.orderDesc('$createdAt')]);
     document.getElementById("adminBody").innerHTML = res.documents.map(doc => {
         appointmentsMap[doc.$id] = doc;
+        if (doc.name === "LAB_KAPALI") return ""; // Blok kayıtlarını tabloda gösterme, sadece takvimde göster
+        
         const past = !canProcess(doc.date, 'edit');
         const userDetail = userMap[doc.name] || { id: '-', phone: '-' };
         return `<tr>
@@ -415,11 +438,9 @@ async function loadUserData() {
         appointmentsMap[doc.$id] = doc;
         const past = !canProcess(doc.date, 'edit');
         return `<tr><td><b>${doc.lab}</b><br>${doc.equipment}</td><td>${formatDate(doc.date)}<br>${doc.time}</td>
-            <td>
-                <button class="info-btn" onclick="showDetails('${doc.$id}')">i</button>
-                <button class="edit-btn" ${past ? 'disabled' : ''} onclick="editRes('${doc.$id}', '${doc.lab}', '${doc.date}', '${doc.equipment}', '${doc.time}', '${doc.name}', \`${doc.history || ''}\`)">${past ? '-' : 'Düz.'}</button>
-                <button class="delete-btn" ${past ? 'disabled' : ''} onclick="deleteRes('${doc.$id}', false)">${past ? '-' : 'İptal'}</button>
-            </td></tr>`;
+            <td><button class="info-btn" onclick="showDetails('${doc.$id}')">i</button>
+            <button class="edit-btn" ${past ? 'disabled' : ''} onclick="editRes('${doc.$id}', '${doc.lab}', '${doc.date}', '${doc.equipment}', '${doc.time}', '${doc.name}', \`${doc.history || ''}\`)">${past ? '-' : 'Düz.'}</button>
+            <button class="delete-btn" ${past ? 'disabled' : ''} onclick="deleteRes('${doc.$id}', false)">${past ? '-' : 'İptal'}</button></td></tr>`;
     }).join('');
 }
 
@@ -437,17 +458,12 @@ async function checkSession() {
 async function handleLogin() { const email = document.getElementById("loginId").value.trim() + document.getElementById("loginDomain").value; try { await account.createEmailSession(email, document.getElementById("loginPass").value); location.reload(); } catch (e) { alert(e.message); } }
 
 async function handleRegister() { 
-    const idVal = document.getElementById("regId").value.trim();
-    const email = idVal + document.getElementById("regDomain").value;
-    const pass = document.getElementById("regPass").value;
-    const name = document.getElementById("regFullName").value;
-    const phone = document.getElementById("regPhone").value.trim();
-    if(!phone) return alert("Telefon numarası zorunludur!");
-    try { 
-        await account.create(ID.unique(), email, pass, name); await account.createEmailSession(email, pass); await account.updatePrefs({ phone: phone });
+    const idVal = document.getElementById("regId").value.trim(); const email = idVal + document.getElementById("regDomain").value;
+    const pass = document.getElementById("regPass").value; const name = document.getElementById("regFullName").value; const phone = document.getElementById("regPhone").value.trim();
+    if(!phone) return alert("Telefon zorunlu!");
+    try { await account.create(ID.unique(), email, pass, name); await account.createEmailSession(email, pass); await account.updatePrefs({ phone: phone });
         try { await databases.createDocument(DB_ID, COLL_PROFILES, ID.unique(), { studentId: idVal, name: name, phone: phone }); } catch(err) {}
-        await account.createVerification("https://oktaykemah.github.io/lab-randevu/"); 
-        alert("Onay maili gönderildi."); await account.deleteSession('current'); switchPage('loginPage'); 
+        await account.createVerification("https://oktaykemah.github.io/lab-randevu/"); alert("Mail gönderildi."); await account.deleteSession('current'); switchPage('loginPage'); 
     } catch (e) { alert(e.message); } 
 }
 
