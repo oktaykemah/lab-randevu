@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>IKC Lab Booking - v1.7.0</title>
+  <title>IKC Lab Booking - v1.7.1</title>
   <script src="https://cdn.jsdelivr.net/npm/appwrite@13.0.1"></script>
   <style>
     :root { --primary: #0066cc; --admin: #2c3e50; --danger: #e74c3c; --success: #27ae60; --warning: #f39c12; --info: #17a2b8; --occupied-other: #fdeaea; --occupied-me: #e3f2fd; --holiday: #fff3e0; }
@@ -11,7 +11,7 @@
     
     .version-tag { position: fixed; bottom: 10px; left: 10px; font-size: 11px; color: #888; z-index: 1000; font-weight: bold; background: rgba(255,255,255,0.7); padding: 2px 5px; border-radius: 4px; }
     
-    .box { background: #fff; padding: 25px; width: 100%; max-width: 1100px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); position: relative; z-index: 1; }
+    .box { background: #fff; padding: 25px; width: 100%; max-width: 1200px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); position: relative; z-index: 1; }
     
     .hidden { display: none !important; }
 
@@ -35,21 +35,21 @@
     
     .main-btn { background: var(--primary); color: white; border: none; font-weight: bold; cursor: pointer; transition: 0.3s; margin-top: 20px; }
     .save-envanter-btn { background: var(--success); color: white; border: none; padding: 12px; border-radius: 8px; cursor: pointer; margin-top: 15px; font-weight: bold; width: 100%; }
-    .delete-btn { background: var(--danger); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; }
-    .edit-btn { background: var(--warning); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; margin-right: 5px; }
-    .info-btn { background: var(--info); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; margin-right: 5px; font-weight: bold; }
+    .delete-btn { background: var(--danger); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 11px; }
+    .edit-btn { background: var(--warning); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 11px; margin-right: 3px; }
+    .info-btn { background: var(--info); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 11px; margin-right: 3px; font-weight: bold; }
     
-    table.res-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-    .res-table th, .res-table td { text-align: left; padding: 12px; border-bottom: 1px solid #eee; font-size: 13px; }
+    table.res-table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 13px; }
+    .res-table th, .res-table td { text-align: left; padding: 10px; border-bottom: 1px solid #eee; }
+    .res-table th { background: #f8f9fa; color: #555; }
+    
     .info-card { background: #e3f2fd; padding: 12px; border-radius: 8px; color: #0d47a1; font-size: 13px; font-weight: bold; margin-bottom: 15px; border-left: 5px solid var(--primary); line-height: 1.4; }
     .holiday-msg { background: var(--holiday); color: #e65100; padding: 15px; border-radius: 8px; text-align: center; font-weight: bold; margin-bottom: 15px; border: 1px solid #ffe0b2; }
     
-    /* Doğrulama Mesajı */
     .verify-msg { padding: 15px; border-radius: 8px; text-align: center; font-weight: bold; margin-bottom: 15px; font-size: 14px; }
     .verify-success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
     .verify-error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
 
-    /* MODAL */
     .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 9999; }
     .modal.active { display: flex !important; }
     .modal-content { background: white; padding: 25px; border-radius: 10px; width: 90%; max-width: 500px; box-shadow: 0 10px 25px rgba(0,0,0,0.3); position: relative; }
@@ -59,7 +59,7 @@
 </head>
 <body>
 
-<div class="version-tag">v1.7.0</div>
+<div class="version-tag">v1.7.1</div>
 
 <div id="app" class="box">
     <div id="loginPage">
@@ -124,7 +124,7 @@
         
         <div style="background: #fdfdfd; padding: 20px; border-radius: 10px; margin-top: 20px; border: 1px solid #ddd;">
             <h3>Kayıtlı Kullanıcı Havuzu</h3>
-            <div style="max-height: 300px; overflow-y: auto;">
+            <div style="max-height: 250px; overflow-y: auto;">
                 <table class="res-table" style="margin-top:0;">
                     <thead style="background:#f9f9f9; position: sticky; top: 0;"><tr><th>ID</th><th>Ad Soyad</th><th>Telefon</th></tr></thead>
                     <tbody id="userProfilesBody"></tbody>
@@ -148,8 +148,12 @@
             <div style="display:flex; gap:10px;"><select id="adminViewLab" onchange="loadAdminCalendar()" style="flex:2;"><option value="Malzeme Karakterizasyon Lab.">Malzeme Karakterizasyon Lab.</option><option value="Numune Hazırlama Lab.">Numune Hazırlama Lab.</option><option value="Üretim Lab.">Üretim Lab.</option></select><input id="adminViewDate" type="date" onchange="loadAdminCalendar()" style="flex:1;"></div>
             <div class="calendar-container"><table class="cal-table"><thead id="adminCalHead"></thead><tbody id="adminCalBody"></tbody></table></div>
         </div>
+        
         <h3>Tüm Randevular</h3>
-        <table class="res-table"><thead><tr><th>Kullanıcı</th><th>Cihaz</th><th>Zaman</th><th>İşlem</th></tr></thead><tbody id="adminBody"></tbody></table>
+        <table class="res-table">
+            <thead><tr><th>ID</th><th>Kullanıcı</th><th>Tel</th><th>Cihaz</th><th>Zaman</th><th>İşlem</th></tr></thead>
+            <tbody id="adminBody"></tbody>
+        </table>
         <button onclick="logout()" style="background:#666; color:white; margin-top:20px;">Güvenli Çıkış</button>
     </div>
 
@@ -170,19 +174,14 @@ const client = new Client().setEndpoint('https://cloud.appwrite.io/v1').setProje
 const account = new Account(client);
 const databases = new Databases(client);
 
-// KOLLEKSİYON ID'LERİ (Lütfen 'profiles' koleksiyonunu veritabanında oluşturun)
-const DB_ID = '6981c42a00202c6cdf0e';
-const COLL_APP = 'appointments';
-const COLL_EQUIP = 'equipments';
-const COLL_PROFILES = 'profiles'; // YENİ KOLEKSİYON
-
+const DB_ID = '6981c42a00202c6cdf0e', COLL_APP = 'appointments', COLL_EQUIP = 'equipments', COLL_PROFILES = 'profiles';
 const SUPER_ADMINS = ["oktay.kemah@ikc.edu.tr", "saadet.guler@ikc.edu.tr", "metehan.atagur@ikc.edu.tr", "berk.ozler@ikc.edu.tr"];
 const LAB_BOSSES = { "Numune Hazırlama Lab.": "Arş. Gör. Oktay Kemah", "Malzeme Karakterizasyon Lab.": "Öğr. Gör. Dr. Saadet Güler", "Üretim Lab.": "Arş.Gör.Dr. Metehan Atagür - Arş.Gör. Berk Özler" };
 const hours = ["09:00-10:00", "10:00-11:00", "11:00-12:00", "12:00-13:00", "13:00-14:00", "14:00-15:00", "15:00-16:00", "16:00-17:00"];
 let currentUser = null, editingId = null, preSelectedEquips = [], preSelectedTimes = [], editingOwner = null, editingHistory = "";
 let appointmentsMap = {};
+let userMap = {}; // Kullanıcı bilgilerini eşleştirmek için
 
-// TIME UTILS
 function getHoliday(dateStr) {
     const d = new Date(dateStr), day = d.getDay(), monthDay = (d.getMonth() + 1) + "-" + d.getDate();
     if (day === 0 || day === 6) return "Hafta Sonu (Laboratuvar Kapalı)";
@@ -201,21 +200,21 @@ function canProcess(dateStr, type) {
     return today < limit;
 }
 
-// KULLANICI LİSTELEME (YENİ)
+// KULLANICI YÖNETİMİ
 async function loadUserProfiles() {
     try {
         const res = await databases.listDocuments(DB_ID, COLL_PROFILES, [Query.orderAsc('studentId')]);
+        // Tabloyu doldur
         document.getElementById("userProfilesBody").innerHTML = res.documents.map(u => `
-            <tr>
-                <td style="font-weight:bold;">${u.studentId}</td>
-                <td>${u.name}</td>
-                <td>${u.phone}</td>
-            </tr>
+            <tr><td style="font-weight:bold;">${u.studentId}</td><td>${u.name}</td><td>${u.phone}</td></tr>
         `).join('');
-    } catch (e) { console.log("Kullanıcı listesi çekilemedi (Henüz veri yok)."); }
+        // Eşleştirme haritasını doldur (İsim -> Bilgiler)
+        res.documents.forEach(u => {
+            userMap[u.name] = { id: u.studentId, phone: u.phone };
+        });
+    } catch (e) { console.log("Profil hatası:", e); }
 }
 
-// ENVANTER
 async function listAdminEquipments() {
     const lab = document.getElementById("adminLabSelect").value;
     const res = await databases.listDocuments(DB_ID, COLL_EQUIP, [Query.equal('lab', lab)]);
@@ -254,7 +253,6 @@ async function addEquipmentToDB() {
 }
 async function deleteDevice(id) { if(confirm("Emin misiniz?")) { await databases.deleteDocument(DB_ID, COLL_EQUIP, id); listAdminEquipments(); } }
 
-// REZERVASYON & LOGLAMA
 async function refreshView() {
     const lab = document.getElementById("labSelect").value, dateStr = document.getElementById("resDate").value;
     if(!lab || !dateStr) return;
@@ -316,9 +314,7 @@ async function saveBooking() {
     }
 
     await databases.createDocument(DB_ID, COLL_APP, ID.unique(), { 
-        name: finalOwner, lab, date, 
-        equipment: equips.join(', '), time: times.join(', '),
-        history: logEntry 
+        name: finalOwner, lab, date, equipment: equips.join(', '), time: times.join(', '), history: logEntry 
     });
     alert("İşlem Başarılı!"); refreshView(); loadUserData(); if(SUPER_ADMINS.includes(currentUser.email)) loadAdminData();
 }
@@ -327,20 +323,21 @@ async function editRes(id, lab, date, equipStr, timeStr, owner, history) {
     if (!canProcess(date, 'edit')) { alert("Süresi dolmuş randevular düzenlenemez!"); return; }
     editingId = id; editingOwner = owner; editingHistory = history; 
     preSelectedEquips = equipStr.split(', '); preSelectedTimes = timeStr.split(', ');
-    
     document.getElementById("editModeNotice").classList.remove("hidden");
     document.getElementById("labSelect").value = lab; document.getElementById("resDate").value = date.split('T')[0];
-    await refreshView(); 
-    document.getElementById("bookingPage").classList.remove("hidden");
+    await refreshView(); document.getElementById("bookingPage").classList.remove("hidden");
     document.getElementById("bookingPage").scrollIntoView({ behavior: 'smooth' });
 }
 
-// LOG GÖRÜNTÜLEME
 window.showDetails = function(id) {
     const doc = appointmentsMap[id];
     if(!doc) return alert("Veri yükleniyor veya bulunamadı.");
+    // Bilgileri UserMap'ten çek
+    const userDetail = userMap[doc.name] || { id: '-', phone: '-' };
+    
     document.getElementById("modalDetails").innerHTML = `
-        <b>Öğrenci:</b> ${doc.name}<br>
+        <b>Öğrenci:</b> ${doc.name} (${userDetail.id})<br>
+        <b>Telefon:</b> ${userDetail.phone}<br>
         <b>Laboratuvar:</b> ${doc.lab}<br>
         <b>Tarih:</b> ${formatDate(doc.date)}<br>
         <b>Cihazlar:</b> ${doc.equipment}<br>
@@ -351,7 +348,6 @@ window.showDetails = function(id) {
 }
 window.closeModal = function() { document.getElementById("detailModal").classList.remove("active"); }
 
-// LİSTELEME
 function formatDate(dateStr) { if(!dateStr) return ""; const d = new Date(dateStr); return `${d.getDate().toString().padStart(2, '0')}.${(d.getMonth() + 1).toString().padStart(2, '0')}.${d.getFullYear()}`; }
 
 async function loadAdminData() {
@@ -359,8 +355,12 @@ async function loadAdminData() {
     document.getElementById("adminBody").innerHTML = res.documents.map(doc => {
         appointmentsMap[doc.$id] = doc;
         const past = !canProcess(doc.date, 'edit');
+        const userDetail = userMap[doc.name] || { id: '-', phone: '-' };
+        
         return `<tr>
+            <td>${userDetail.id}</td>
             <td>${doc.name}</td>
+            <td>${userDetail.phone}</td>
             <td>${doc.equipment}</td>
             <td>${formatDate(doc.date)} / ${doc.time}</td>
             <td>
@@ -395,16 +395,15 @@ async function checkSession() {
         document.getElementById("userGreet").innerText = "Merhaba, " + currentUser.name;
         if(SUPER_ADMINS.includes(currentUser.email)) { 
             document.getElementById("adminLink").classList.remove("hidden"); 
+            await loadUserProfiles(); // ÖNCE PROFİLLERİ YÜKLE
             listAdminEquipments(); 
             loadAdminData();
-            loadUserProfiles(); // Admin ise kullanıcı listesini yükle
         }
         loadUserData();
     } catch (e) {}
 }
 async function handleLogin() { const email = document.getElementById("loginId").value.trim() + document.getElementById("loginDomain").value; try { await account.createEmailSession(email, document.getElementById("loginPass").value); location.reload(); } catch (e) { alert(e.message); } }
 
-// HANDLE REGISTER (PROFIL KAYITLI)
 async function handleRegister() { 
     const idVal = document.getElementById("regId").value.trim();
     const email = idVal + document.getElementById("regDomain").value;
@@ -419,14 +418,7 @@ async function handleRegister() {
         await account.createEmailSession(email, pass);
         await account.updatePrefs({ phone: phone });
         
-        // PROFİL VERİTABANINA KAYIT
-        try {
-            await databases.createDocument(DB_ID, COLL_PROFILES, ID.unique(), {
-                studentId: idVal,
-                name: name,
-                phone: phone
-            });
-        } catch(err) { console.log("Profil DB hatası", err); }
+        try { await databases.createDocument(DB_ID, COLL_PROFILES, ID.unique(), { studentId: idVal, name: name, phone: phone }); } catch(err) {}
 
         await account.createVerification("https://oktaykemah.github.io/lab-randevu/"); 
         alert("Onay maili gönderildi."); await account.deleteSession('current'); switchPage('loginPage'); 
@@ -437,12 +429,10 @@ async function loadAdminCalendar() { const lab = document.getElementById("adminV
 function switchPage(id) { document.querySelectorAll('.box > div').forEach(d => d.classList.add('hidden')); document.getElementById(id).classList.remove('hidden'); }
 async function logout() { await account.deleteSession('current'); location.reload(); }
 
-// URL KONTROLÜ (DOĞRULAMA)
 window.onload = async () => {
     const urlParams = new URLSearchParams(window.location.search);
     const userId = urlParams.get('userId');
     const secret = urlParams.get('secret');
-
     if (userId && secret) {
         try {
             await account.updateVerification(userId, secret);
