@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>İKÇÜ Lab Randevu - v2.2.0</title>
+  <title>İKÇÜ Lab Randevu - v2.2.1</title>
   <script src="https://cdn.jsdelivr.net/npm/appwrite@13.0.1"></script>
   <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -16,7 +16,7 @@
     .hidden { display: none !important; }
     h2, h3 { color: #333; border-bottom: 2px solid #eee; padding-bottom: 10px; margin-top: 0; }
     
-    /* GİRİŞ & GENEL */
+    /* GİRİŞ & LOGO */
     .login-wrapper { max-width: 400px; margin: 0 auto; text-align: center; }
     .login-header i { font-size: 45px; color: var(--primary); margin-bottom: 15px; display: block; }
     .input-group { position: relative; margin-bottom: 12px; }
@@ -30,7 +30,7 @@
     .tab-btn { flex: 1; padding: 15px; background: none; border: none; font-weight: bold; color: #666; cursor: pointer; border-bottom: 3px solid transparent; transition: 0.3s; font-size: 13px; margin-top: 0; border-radius: 8px 8px 0 0; white-space: nowrap; }
     .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); background: #f0f7ff; }
     
-    /* TABLO & TAKVİM */
+    /* TABLO & HÜCRELER */
     .cal-table { width: 100%; border-collapse: collapse; background: white; min-width: 600px; }
     .cal-table th, .cal-table td { border: 1px solid #eee; padding: 12px; text-align: center; font-size: 12px; transition: 0.2s; user-select: none; }
     .cal-table th { background: #f8f9fa; color: #666; }
@@ -43,7 +43,7 @@
     .slot-pending { background: var(--pending) !important; color: white !important; border: 2px dashed #e67e22 !important; cursor: pointer; }
     .slot-admin-clickable { cursor: pointer !important; }
     
-    /* BADGES & BTNS */
+    /* BADGES & BUTONLAR */
     .badge-completed { background: #d4edda; color: #155724; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; border: 1px solid #c3e6cb; }
     .badge-noshow { background: #f8d7da; color: #721c24; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; border: 1px solid #f5c6cb; }
     .badge-pending { background: #fff3cd; color: #856404; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; border: 1px solid #ffeeba; }
@@ -57,16 +57,13 @@
     .res-table th, .res-table td { text-align: left; padding: 10px; border-bottom: 1px solid #eee; }
     .res-table th { background: #f8f9fa; color: #555; }
     
-    /* BİLDİRİM KARTLARI */
-    .info-card { background: #e3f2fd; padding: 12px; border-radius: 8px; color: #0d47a1; font-size: 13px; font-weight: bold; margin-bottom: 15px; border-left: 5px solid var(--primary); line-height: 1.4; }
-    .quota-card { background: #fff3cd; padding: 12px; border-radius: 8px; color: #856404; font-size: 13px; font-weight: bold; margin-bottom: 15px; border-left: 5px solid #ffc107; display: flex; justify-content: space-between; align-items: center; }
     .holiday-msg { background: var(--holiday); color: #e65100; padding: 15px; border-radius: 8px; text-align: center; font-weight: bold; margin-bottom: 15px; border: 1px solid #ffe0b2; }
     .verify-msg { padding: 15px; border-radius: 8px; text-align: center; font-weight: bold; margin-bottom: 15px; font-size: 14px; }
     .verify-success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
     .verify-error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
     
-    /* BAN ALERT */
-    .ban-alert { background: #ffdede; color: #c0392b; padding: 15px; border-radius: 8px; font-weight: bold; margin-bottom: 20px; border: 1px solid #e74c3c; display:flex; align-items:center; gap:10px; }
+    /* BAN UYARISI */
+    .ban-alert { background: #ffdede; color: #c0392b; padding: 15px; border-radius: 8px; font-weight: bold; margin-bottom: 20px; border: 1px solid #e74c3c; display:flex; align-items:center; gap:10px; font-size:14px; }
     .ban-alert i { font-size: 20px; }
 
     /* MODAL */
@@ -79,7 +76,7 @@
 </head>
 <body>
 
-<div class="version-tag">v2.2.0</div>
+<div class="version-tag">v2.2.1</div>
 
 <div id="app" class="box">
     <div id="loginPage" class="login-wrapper">
@@ -212,23 +209,20 @@ const restrictedHours = ["09:00-10:00", "16:00-17:00"];
 let currentUser = null, editingId = null, editingOwner = null, editingHistory = "";
 let appointmentsMap = {}, userMap = {}, equipmentTypeMap = {}, selectedCells = [], tempAdminChanges = [];
 
-// --- YARDIMCI FONKSİYONLAR ---
 function formatDate(dateStr) { if (!dateStr) return ""; const d = new Date(dateStr); return `${d.getDate().toString().padStart(2, '0')}.${(d.getMonth() + 1).toString().padStart(2, '0')}.${d.getFullYear()}`; }
 function getWeekNumber(d) { d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())); d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay()||7)); var yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1)); return [d.getUTCFullYear(), Math.ceil(( ( (d - yearStart) / 86400000) + 1)/7)]; }
 function getHoliday(dateStr) { const d = new Date(dateStr), day = d.getDay(), monthDay = (d.getMonth() + 1) + "-" + d.getDate(); if (day === 0 || day === 6) return "Hafta Sonu (Laboratuvar Kapalı)"; const h = {"1-1":"Yılbaşı","4-23":"23 Nisan","5-1":"1 Mayıs","5-19":"19 Mayıs","7-15":"15 Temmuz","8-30":"30 Ağustos","10-29":"29 Ekim"}; return h[monthDay] || null; }
 function canProcess(dateStr, type) { if (SUPER_ADMINS.includes(currentUser?.email)) return true; const t = new Date(dateStr); t.setHours(0,0,0,0); const now = new Date(); now.setHours(0,0,0,0); if (type === 'booking') return t > now; const diff = Math.ceil((t - now) / (86400000)); if (type === 'delete') return diff >= 1; if (type === 'edit') return diff >= 2; return false; }
 function sendEmail(to, sub, msg) { if(Array.isArray(to)){to.forEach(e=>emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {to_email:e, subject:sub, message:msg}));} else {emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {to_email:to, subject:sub, message:msg});} }
 
-// BAN SÜRESİ HESAPLAMA
+// --- YENİ EKLENEN: BAN SÜRESİ HESAPLAMA ---
 function getBanRemaining(banDateStr) {
     if(!banDateStr) return null;
     const banStart = new Date(banDateStr);
-    const banEnd = new Date(banStart.getTime() + (30 * 24 * 60 * 60 * 1000)); // 30 Gün ekle
+    const banEnd = new Date(banStart.getTime() + (30 * 24 * 60 * 60 * 1000)); // 30 Gün
     const now = new Date();
     const diff = banEnd - now;
-    
-    if(diff <= 0) return 0; // Süre dolmuş
-    
+    if(diff <= 0) return 0; // Süre Doldu
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
     const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
     return `${days} Gün ${hours} Saat`;
@@ -240,7 +234,8 @@ async function handleRegister() {
     if(!phone) return alert("Telefon zorunlu!");
     try { 
         await account.create(ID.unique(), email, pass, name); await account.createEmailSession(email, pass); await account.updatePrefs({ phone: phone });
-        try { await databases.createDocument(DB_ID, COLL_PROFILES, ID.unique(), { studentId: idVal, name: name, phone: phone, email: email, blacklisted: false }); } catch(dbError) { console.error("DB Error:", dbError); }
+        // NOT: Email'i createDocument'dan çıkardık (eski v2.1.2 gibi), veritabanı ayarına gerek kalmaz.
+        try { await databases.createDocument(DB_ID, COLL_PROFILES, ID.unique(), { studentId: idVal, name: name, phone: phone, blacklisted: false }); } catch(dbError) { console.error("DB Error:", dbError); }
         await account.createVerification("https://oktaykemah.github.io/lab-randevu/"); alert("Kayıt Başarılı! Mail gönderildi."); await account.deleteSession('current'); switchPage('loginPage'); 
     } catch (e) { alert("Hata: " + e.message); } 
 }
@@ -254,7 +249,7 @@ async function checkSession() {
         document.getElementById("bookingPage").classList.remove("hidden"); 
         document.getElementById("userGreet").innerText = "Merhaba, " + currentUser.name; 
         
-        // BAN KONTROLÜ VE OTOMATİK AF
+        // OTOMATİK AF & BAN KONTROL
         await checkUserBanStatus();
 
         if(SUPER_ADMINS.includes(currentUser.email)) { 
@@ -265,10 +260,12 @@ async function checkSession() {
     } catch (e) {} 
 }
 
-// OTOMATİK AF MEKANİZMASI
+// --- YENİ EKLENEN: OTOMATİK AF FONKSİYONU ---
 async function checkUserBanStatus() {
     try {
-        const p = await databases.listDocuments(DB_ID, COLL_PROFILES, [Query.equal('email', currentUser.email)]);
+        // Profili çek (Appwrite'da email attribute zorunlu olmasın)
+        // NOT: Email attribute'u olmayan eski kullanıcılar için isimle arıyoruz
+        let p = await databases.listDocuments(DB_ID, COLL_PROFILES, [Query.equal('name', currentUser.name)]);
         if (p.documents.length > 0) {
             const user = p.documents[0];
             if (user.blacklisted) {
@@ -280,14 +277,14 @@ async function checkUserBanStatus() {
                 } else if (remaining) {
                     // SÜRE VAR -> GÖSTER
                     const alertBox = document.getElementById("userBanAlert");
-                    alertBox.innerHTML = `<i class="fa-solid fa-ban"></i> <span>DİKKAT: Hesabınız kara listededir. Cezanızın bitmesine: <b>${remaining}</b> kaldı.</span>`;
+                    alertBox.innerHTML = `<i class="fa-solid fa-ban"></i> <span>DİKKAT: Kara listedesiniz. Cezanızın bitmesine: <b>${remaining}</b> kaldı.</span>`;
                     alertBox.classList.remove("hidden");
                 }
             } else {
                 document.getElementById("userBanAlert").classList.add("hidden");
             }
         }
-    } catch(e) { console.error("Ban kontrol hatası", e); }
+    } catch(e) { console.error("Ban kontrol hatası:", e); }
 }
 
 // --- DATA & BOOKING ---
@@ -310,10 +307,10 @@ async function checkUserQuota(targetDate) {
 async function saveBooking() {
     // 0. KARA LİSTE KONTROLÜ
     try {
-        const p = await databases.listDocuments(DB_ID, COLL_PROFILES, [Query.equal('email', currentUser.email)]);
+        const p = await databases.listDocuments(DB_ID, COLL_PROFILES, [Query.equal('name', currentUser.name)]);
         if (p.documents.length > 0 && p.documents[0].blacklisted) {
             const rem = getBanRemaining(p.documents[0].banDate);
-            return alert(`🚫 Kara listedesiniz. Randevu alamazsınız.\nKalan Süre: ${rem || "Bilinmiyor"}`);
+            return alert(`🚫 Kara listedesiniz. Randevu alamazsınız.\nKalan Süre: ${rem || "Hesaplanıyor..."}`);
         }
     } catch(e){}
 
@@ -354,31 +351,15 @@ async function loadUserProfiles() {
     try {
         const res = await databases.listDocuments(DB_ID, COLL_PROFILES, [Query.orderAsc('studentId')]);
         document.getElementById("userProfilesBody").innerHTML = res.documents.map(u => {
-            // Admin Panelinde Geri Sayım Gösterimi
-            let statusText = 'Aktif';
-            let statusClass = 'badge-completed';
-            let btnText = 'Banla';
-            
+            // Admin Panelinde Geri Sayım
+            let statusText = 'Aktif', statusClass = 'badge-completed', btnText = 'Banla';
             if (u.blacklisted) {
                 const rem = getBanRemaining(u.banDate);
-                if (rem === 0) {
-                    // Süre bitmiş ama henüz biri siteye girmemiş, manuel tetiklenebilir ama burada süresi doldu yazsın
-                    statusText = 'Süresi Doldu (Otomatik Açılacak)';
-                    statusClass = 'badge-pending';
-                } else {
-                    statusText = `KARA LİSTE (${rem || 'Süresiz'} Kaldı)`;
-                    statusClass = 'badge-noshow';
-                }
+                if (rem === 0) { statusText = 'Süresi Doldu'; statusClass = 'badge-pending'; }
+                else { statusText = `KARA LİSTE (${rem || '?'})`; statusClass = 'badge-noshow'; }
                 btnText = 'Affet (Aç)';
             }
-
-            return `<tr>
-                <td style="font-weight:bold;">${u.studentId}</td>
-                <td>${u.name}</td>
-                <td>${u.phone}</td>
-                <td><span class="${statusClass}">${statusText}</span></td>
-                <td><button onclick="toggleBlacklist('${u.$id}', ${u.blacklisted})">${btnText}</button></td>
-            </tr>`;
+            return `<tr><td style="font-weight:bold;">${u.studentId}</td><td>${u.name}</td><td>${u.phone}</td><td><span class="${statusClass}">${statusText}</span></td><td><button onclick="toggleBlacklist('${u.$id}', ${u.blacklisted})">${btnText}</button></td></tr>`;
         }).join('');
         res.documents.forEach(u => userMap[u.name] = { id: u.studentId, phone: u.phone });
     } catch(e) { console.error(e); }
@@ -388,10 +369,8 @@ async function toggleBlacklist(id, status) {
     if(!confirm("Emin misiniz?")) return;
     try {
         const updateData = { blacklisted: !status };
-        // Banlanıyorsa Tarih Ekle, Açılıyorsa Tarihi Sil
-        if (!status) updateData.banDate = new Date().toISOString();
-        else updateData.banDate = null;
-
+        // Banlarken Tarih At, Açarken Tarihi Sil
+        if (!status) updateData.banDate = new Date().toISOString(); else updateData.banDate = null;
         await databases.updateDocument(DB_ID, COLL_PROFILES, id, updateData);
         alert("Güncellendi."); loadUserProfiles();
     } catch(e) { alert("Hata: " + e.message); }
@@ -405,15 +384,12 @@ async function markResStatus(id, type, name) {
             const p = await databases.listDocuments(DB_ID, COLL_PROFILES, [Query.equal('name', name)]);
             if(p.documents.length) {
                 try {
-                    // Kullanıcıyı banla ve tarih at
-                    await databases.updateDocument(DB_ID, COLL_PROFILES, p.documents[0].$id, { 
-                        blacklisted: true,
-                        banDate: new Date().toISOString()
-                    });
+                    // Kullanıcıyı banla + Tarih ekle
+                    await databases.updateDocument(DB_ID, COLL_PROFILES, p.documents[0].$id, { blacklisted: true, banDate: new Date().toISOString() });
                     alert("Kullanıcı kara listeye alındı (30 Gün).");
-                } catch(banErr) { alert("Ban Hatası: " + banErr.message); }
+                } catch(banErr) { alert("Randevu işaretlendi ama kullanıcı banlanamadı: " + banErr.message); }
             }
-        }
+        } else { alert("Tamamlandı olarak işaretlendi."); }
         loadAdminData(); loadUserProfiles();
     } catch(e) { alert("Hata: " + e.message); }
 }
